@@ -10,7 +10,7 @@ import {
   getFirestore,
   serverTimestamp
 } from "firebase/firestore";
-import { UserRole } from "@/types/permissions";
+import { UserRole } from "@/types/user";
 
 interface UserCreationOptions {
   email: string;

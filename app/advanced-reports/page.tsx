@@ -186,6 +186,7 @@ const AdvancedReportsPage = () => {
         const data = doc.data() as DocumentData
         return {
           id: doc.id,
+          uid: data.uid || data.createdBy || '',
           total: data.total || 0,
           status: data.status || 'closed',
           tableNumber: data.tableNumber || undefined,
@@ -201,20 +202,14 @@ const AdvancedReportsPage = () => {
             price: item.price || 0
           })),
           orderType: data.orderType || 'table',
-          restaurantId: data.restaurantId || user?.uid || '',
-          subtotal: data.subtotal || data.total || 0,
+          restaurantId: data.restaurantId || '',
+          subtotal: data.subtotal || 0,
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-          paymentInfo: data.paymentInfo || {
-            method: "unknown",
-            amount: 0,
-            status: "pending"
-          },
-          createdBy: data.createdBy || {
-            uid: "",
-            displayName: "",
-            email: null,
-            role: "staff"
-          }
+          paymentInfo: data.paymentInfo || {},
+          createdBy: data.createdBy || '',
+          discount: data.discount || 0,
+          paymentMethod: data.paymentMethod || 'pending',
+          waiter: data.waiter || data.createdBy || ''
         }
       })
 
@@ -284,6 +279,7 @@ const AdvancedReportsPage = () => {
         const data = doc.data() as DocumentData
         return {
           id: doc.id,
+          uid: data.uid || data.createdBy || '',
           total: data.total || 0,
           status: data.status || 'closed',
           tableNumber: data.tableNumber || undefined,
@@ -299,20 +295,14 @@ const AdvancedReportsPage = () => {
             price: item.price || 0
           })),
           orderType: data.orderType || 'table',
-          restaurantId: data.restaurantId || user?.uid || '',
-          subtotal: data.subtotal || data.total || 0,
+          restaurantId: data.restaurantId || '',
+          subtotal: data.subtotal || 0,
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-          paymentInfo: data.paymentInfo || {
-            method: "unknown",
-            amount: 0,
-            status: "pending"
-          },
-          createdBy: data.createdBy || {
-            uid: "",
-            displayName: "",
-            email: null,
-            role: "staff"
-          }
+          paymentInfo: data.paymentInfo || {},
+          createdBy: data.createdBy || '',
+          discount: data.discount || 0,
+          paymentMethod: data.paymentMethod || 'pending',
+          waiter: data.waiter || data.createdBy || ''
         }
       })
     } catch (error) {

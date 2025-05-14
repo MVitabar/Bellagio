@@ -1,4 +1,5 @@
-import { Order, InventoryItem } from './index';
+import { Order } from './order';
+import { InventoryItem } from './inventory';
 
 // For Advanced Reports Page
 export interface FinancialEntry {

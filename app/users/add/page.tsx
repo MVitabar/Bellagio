@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { UserRole } from "@/types/permissions"
+import { UserRole } from "@/types/user"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useEffect } from "react"
 import { collection, addDoc } from 'firebase/firestore';

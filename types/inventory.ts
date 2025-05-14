@@ -1,4 +1,4 @@
-import { UserRole } from './permissions'; // Needed if CurrentUser usage implies roles
+import { UserRole } from './user'; // Needed if CurrentUser usage implies roles
 
 // Inventory Management
 export enum InventoryCategory {

@@ -1,5 +1,5 @@
 import { Order, OrderItem } from '@/types/index';
-import { UserRole } from '@/types';
+import { UserRole } from '@/types/user';
 import { OrderItemStatus, OrderStatus } from '@/types/index';
 
 // --- START NEW HELPER FUNCTIONS ---

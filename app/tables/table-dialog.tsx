@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus } from 'lucide-react'
-import { TableMap, RestaurantTable } from './table-maps-list'
+import type { TableMap } from '@/types/table'
+import type { RestaurantTable } from '@/types/table'
 import { useFirebase } from '@/components/firebase-provider'
 import { useAuth } from '@/components/auth-provider'
 import { doc, serverTimestamp, updateDoc, arrayUnion, getDoc } from 'firebase/firestore'
@@ -76,7 +77,8 @@ export default function TableDialog({
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: tableName,
         mapId: tableMap.id,
-        status: 'available'
+        status: 'available',
+        capacity: 4  // Default capacity of 4 seats
       }
 
       // Actualizar el array tables en el mapa

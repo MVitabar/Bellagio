@@ -3,7 +3,7 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useAuth } from "./auth-provider";
 import { ModulePermissions, Permission, hasPermission } from "@/types/permissions";
-import { UserRole } from '@/types';
+import { UserRole } from '@/types/user';
 
 interface PermissionsContextType {
   canView: (module: keyof ModulePermissions) => boolean;

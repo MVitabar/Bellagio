@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { updateProfile, User as FirebaseUser } from "firebase/auth"
 import { Loader2 } from "lucide-react"
-import { UserRole } from "@/types/permissions"
+import { UserRole } from "@/types/user"
 import { usePermissions } from "@/components/permissions-provider"
 import { UnauthorizedAccess } from "../unauthorized-access"
 import type { User } from '@/types';

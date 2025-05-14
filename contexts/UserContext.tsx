@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode, useState } from 'react';
-import { UserRole } from '@/types/permissions';
+import { UserRole } from '@/types/user';
 
 export interface User {
   uid: string;
