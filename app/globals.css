@@ -1,0 +1,53 @@
+@media print {
+  /* Estilos para impresión */
+  body * {
+    visibility: hidden;
+  }
+
+  .excel-report,
+  .excel-report * {
+    visibility: visible;
+  }
+
+  .excel-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background-color: white;
+  }
+
+  /* Asegurar que los colores se impriman */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Estilos para la tabla de reportes */
+.excel-report table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.excel-report th,
+.excel-report td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.excel-report th {
+  font-weight: bold;
+}
+
+.excel-report tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.excel-report tr:hover {
+  background-color: #f1f1f1;
+}
+
+
+
