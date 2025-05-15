@@ -54,10 +54,10 @@ export async function createTeamMember(
   );
 
   // Si skipAutoLogin es true, cerrar la sesión del usuario recién creado y restaurar la del admin
-  if (userData.skipAutoLogin && auth.currentUser?.email) {
+  if (userData.skipAutoLogin && auth?.currentUser?.email) {
     try {
       // Obtener la sesión actual antes de cerrarla
-      const currentSession = auth.currentUser;
+      const currentSession = auth?.currentUser;
       
       // Solo cerrar sesión si el usuario actual no es el admin
       if (currentSession?.uid !== currentUser.uid) {

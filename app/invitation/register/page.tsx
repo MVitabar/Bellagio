@@ -166,7 +166,7 @@ export default function InvitationRegisterPage() {
               console.group('Next.js Router Navigation')
               
               // Get current user from Firebase/Auth context
-              const user = auth.currentUser
+              const user = auth?.currentUser
               console.log('Current User:', {
                 uid: user?.uid,
                 email: user?.email,
@@ -243,7 +243,7 @@ export default function InvitationRegisterPage() {
               console.group('Window Location Navigation')
               
               // Get current user from Firebase/Auth context
-              const user = auth.currentUser
+              const user = auth?.currentUser
               if (!user) {
                 console.error('No authenticated user found')
                 toast.error("Autenticação necessária para navegação.")

@@ -82,7 +82,7 @@ export function UserProfile() {
     setLoading(true)
 
     try {
-      if (!user || !auth.currentUser) { 
+      if (!user || !auth?.currentUser) { 
         toast.error("Usuário não autenticado.")
         setLoading(false)
         return
@@ -96,7 +96,7 @@ export function UserProfile() {
         updatedAt: new Date(),
       })
 
-      await updateProfile(auth.currentUser, { 
+      await updateProfile(auth?.currentUser, { 
         displayName: userData.username,
       })
 
