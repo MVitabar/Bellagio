@@ -51,6 +51,11 @@ export function CloseOrderDialog({
       return
     }
 
+    if (!db) {
+      toast.error("Erro de conexão com o banco de dados")
+      return
+    }
+
     if (!order?.id) {
       toast.error("ID do pedido inválido")
       return
