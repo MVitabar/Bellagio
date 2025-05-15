@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw } from "lucide-react"
 
 export function FirebaseError() {
-  const { error } = useFirebase()
+  const { initializationError } = useFirebase()
 
-  if (!error) return null
+  if (!initializationError) return null
 
   const handleRefresh = () => {
     window.location.reload()
@@ -31,7 +31,7 @@ export function FirebaseError() {
         </Alert>
 
         <div className="text-center">
-          <p className="text-sm text-muted-foreground mb-4">Technical details: {error.message}</p>
+          <p className="text-sm text-muted-foreground mb-4">Technical details: {initializationError.message}</p>
           <Button onClick={handleRefresh}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh Page
@@ -41,4 +41,3 @@ export function FirebaseError() {
     </div>
   )
 }
-
