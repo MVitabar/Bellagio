@@ -17,11 +17,11 @@ export const useNotifications = () => {
 
       // Usa la API actualizada de OneSignal para obtener el ID del dispositivo
       try {
-        // @ts-ignore
-        const id = await OneSignal.getDeviceId();
+        // @ts-ignore - Usar getUserId en lugar de getDeviceId
+        const id = await OneSignal.getUserId();
         setUserId(id);
       } catch (error) {
-        console.error('Error getting OneSignal device ID:', error);
+        console.error('Error getting OneSignal user ID:', error);
       }
     };
 

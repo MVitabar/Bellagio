@@ -2,12 +2,20 @@ import OneSignal from 'react-onesignal';
 
 export const initializeOneSignal = async () => {
   try {
+    // Verificar que el App ID existe antes de inicializar
+    if (!process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID) {
+      console.error('OneSignal App ID is missing');
+      return;
+    }
+    
+    console.log('Initializing OneSignal with App ID:', process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID);
+    
     await OneSignal.init({
       appId: process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID!,
       safari_web_id: process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID,
       allowLocalhostAsSecureOrigin: true,
       notifyButton: {
-        enable: false,
+        enable: true,
         prenotify: true,
         showCredit: false,
         text: {
