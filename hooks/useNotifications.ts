@@ -15,10 +15,14 @@ export const useNotifications = () => {
       // const isEnabled = await OneSignal.isPushNotificationsEnabled();
       // setIsSubscribed(isEnabled);
 
-      // Usa la API clásica de OneSignal para obtener el ID del usuario (Player ID)
-      // @ts-ignore
-      const id = await OneSignal.getUserId();
-      setUserId(id);
+      // Usa la API actualizada de OneSignal para obtener el ID del dispositivo
+      try {
+        // @ts-ignore
+        const id = await OneSignal.getDeviceId();
+        setUserId(id);
+      } catch (error) {
+        console.error('Error getting OneSignal device ID:', error);
+      }
     };
 
     checkSubscription();
