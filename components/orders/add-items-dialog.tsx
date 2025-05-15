@@ -3,11 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Order, InventoryItem, OrderItem } from "@/types";
+import { OrderType as Order, InventoryItem, OrderItem } from "@/types";
 import { useFirebase } from "@/components/firebase-provider";
 import { collection, getDocs, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
+import { reduceInventoryStock } from "@/lib/inventory-utils";
+import { CATEGORIES_WITHOUT_STOCK } from "@/lib/constants";
 
 // Ajuste: Definición local de Category (solo id, opcional name)
 type Category = {
@@ -50,9 +52,12 @@ export function AddItemsDialog({ order, open, onClose, onItemsAdded }: AddItemsD
       setItems(snap.docs.map(itemDoc => {
         const itemData = itemDoc.data();
         let currentStock = 0;
-        if (typeof itemData.quantity === 'number') {
+        // Ensure 'quantity' from Firestore is treated as stock number
+        if (typeof itemData.stock === 'number') { // Prefer 'stock' field from Firestore if it exists and is number
+          currentStock = itemData.stock;
+        } else if (typeof itemData.quantity === 'number') { // Fallback to 'quantity' from Firestore
           currentStock = itemData.quantity;
-        } else if (typeof itemData.quantity === 'string') {
+        } else if (typeof itemData.quantity === 'string') { // Handle string quantity if necessary
           const parsedStock = parseInt(itemData.quantity, 10);
           currentStock = !isNaN(parsedStock) ? parsedStock : 0;
         }
@@ -61,10 +66,9 @@ export function AddItemsDialog({ order, open, onClose, onItemsAdded }: AddItemsD
           name: itemData.name || 'Unnamed Item',
           category: selectedCategory,
           price: Number(itemData.price || 0),
-          quantity: currentStock, // MODIFICADO: Usar 'quantity' para el stock, según InventoryItem
+          quantity: currentStock, // This is InventoryItem.quantity (actual stock)
           unit: itemData.unit || '',
           description: itemData.description || '',
-          // Otros campos de InventoryItem si son necesarios
         } as InventoryItem;
       }));
     };
@@ -77,57 +81,68 @@ export function AddItemsDialog({ order, open, onClose, onItemsAdded }: AddItemsD
       toast.error("No order ID found.");
       return;
     }
+
+    // Find the selected inventory item details
+    const inventoryItemDetails = items.find(i => i.uid === selectedItem);
+    if (!inventoryItemDetails) {
+      toast.error("Selected item not found in inventory.");
+      return;
+    }
+
+    // Stock Pre-Check for stock-controlled items
+    const requiresStockCheck = inventoryItemDetails.category && !CATEGORIES_WITHOUT_STOCK.includes(inventoryItemDetails.category);
+    if (requiresStockCheck) {
+      const currentItemStock = inventoryItemDetails.quantity !== undefined ? inventoryItemDetails.quantity : 0; // Use .quantity for InventoryItem's stock
+      if (currentItemStock < quantity) {
+        toast.error(`Quantidade (${quantity}) excede o estoque disponível (${currentItemStock}) para ${inventoryItemDetails.name}.`);
+        return;
+      }
+    }
+
     try {
       // 1. Get current items from the order prop, ensuring it's an array
       let currentItems: OrderItem[];
       if (Array.isArray(order.items)) {
         currentItems = order.items;
       } else if (typeof order.items === 'object' && order.items !== null) {
-        // If it's an object (like from old Firebase data), convert its values to an array
-        // This assumes the object's values are the OrderItems
         currentItems = Object.values(order.items);
       } else {
-        // Default to an empty array if items is undefined, null, or not an array/object
         currentItems = [];
       }
 
       // 2. Prepare the new item details (pero aún no lo creamos como OrderItem completo)
-      const inventoryItemDetails = items.find(i => i.uid === selectedItem); // Este es el InventoryItem
-      if (!inventoryItemDetails) {
-        toast.error("Selected item not found in inventory.");
-        return;
-      }
-
       let updatedItems: OrderItem[];
       const existingItemIndex = currentItems.findIndex(item => item.itemId === inventoryItemDetails.uid);
 
       if (existingItemIndex !== -1) {
-        // Item ya existe, actualizar cantidad
         updatedItems = currentItems.map((item, index) => {
           if (index === existingItemIndex) {
             return {
               ...item,
-              quantity: item.quantity + quantity, // Sumar la nueva cantidad a la existente
+              quantity: item.quantity + quantity,
             };
           }
           return item;
         });
         toast.info(`Cantidad de "${inventoryItemDetails.name}" actualizada en la orden.`);
       } else {
-        // Item no existe, añadirlo como nuevo
         const newOrderItemToAdd: OrderItem = {
-          id: uuidv4(), // ID único para esta instancia de OrderItem
-          itemId: inventoryItemDetails.uid, // ID del producto en el inventario
+          id: uuidv4(),
+          itemId: inventoryItemDetails.uid,
           name: inventoryItemDetails.name,
           category: inventoryItemDetails.category || '',
           price: inventoryItemDetails.price || 0,
-          quantity: quantity, // Cantidad inicial seleccionada
-          stock: inventoryItemDetails.quantity !== undefined ? inventoryItemDetails.quantity : null, // Stock del inventario
+          quantity: quantity,
+          stock: inventoryItemDetails.quantity !== undefined ? inventoryItemDetails.quantity : 0, // Populate OrderItem.stock with current inventory stock
           unit: inventoryItemDetails.unit || '',
-          // Asegúrate de que todos los campos requeridos por OrderItem estén aquí
-          status: 'pending', // O el estado por defecto que uses
-          notes: '', // etc.
           description: inventoryItemDetails.description || '',
+          notes: '', // Added: default notes
+          status: 'pending', // Added: default status
+          isVegetarian: false,
+          isVegan: false,
+          isGlutenFree: false,
+          isLactoseFree: false,
+          customDietaryRestrictions: []
         };
         updatedItems = [...currentItems, newOrderItemToAdd];
         toast.success(`"${inventoryItemDetails.name}" x${quantity} añadido a la orden.`);
@@ -135,26 +150,54 @@ export function AddItemsDialog({ order, open, onClose, onItemsAdded }: AddItemsD
 
       // 3. Calculate new subtotal and total based on updatedItems
       let newSubtotal = 0;
-      updatedItems.forEach((it: OrderItem) => { // Explicitly type 'it' as OrderItem
+      updatedItems.forEach((it: OrderItem) => {
         newSubtotal += (it.price || 0) * (it.quantity || 0);
       });
 
-      const newTotal = newSubtotal; // Assuming no tax/discount for now
+      const newTotal = newSubtotal;
 
-      // DEBUG: Log values before Firestore update
-      // console.log("[AddItemsDialog DEBUG] Order ID:", order.id);
-      // console.log("[AddItemsDialog DEBUG] Items for calculation (updatedItems):", JSON.parse(JSON.stringify(updatedItems))); // Deep copy for clean log
-      // console.log("[AddItemsDialog DEBUG] Calculated newSubtotal:", newSubtotal);
-      // console.log("[AddItemsDialog DEBUG] Calculated newTotal:", newTotal);
-
+      if (!db || !order.id) {
+        toast.error("Error adding item: Order ID not found.");
+        return;
+      }
       const orderRef = doc(db, 'orders', order.id);
       await updateDoc(orderRef, {
-        items: updatedItems, // Use the fully updated list of items
+        items: updatedItems,
         subtotal: newSubtotal,
         total: newTotal,
-        // Potentially update other fields like tax, discount if they exist and are calculated
-        updatedAt: new Date() // Good practice to update timestamp
+        updatedAt: new Date()
       });
+
+      // --- Stock Deduction Logic ---
+      if (requiresStockCheck) {
+        console.log(`Deducting stock in AddItemsDialog for: ${inventoryItemDetails.name}, Qty: ${quantity}`);
+        const stockDeductionResult = await reduceInventoryStock({
+          db,
+          item: {
+            id: inventoryItemDetails.uid, // ID of the item in the 'inventory' collection
+            category: inventoryItemDetails.category,
+            name: inventoryItemDetails.name, // For context
+            price: inventoryItemDetails.price || 0, // Ensure price is a number
+            unit: inventoryItemDetails.unit || 'un', 
+            quantity: 0, // Dummy, not used by reduceInventoryStock for deduction path
+          },
+          quantityToReduce: quantity, // This is the quantity *being added* in this operation
+        });
+
+        if (stockDeductionResult.success) {
+          console.log(
+            `Stock for item "${inventoryItemDetails.name}" (ID: ${inventoryItemDetails.uid}) successfully reduced by ${quantity} via AddItemsDialog. New stock: ${stockDeductionResult.newStock}`
+          );
+        } else {
+          console.error(
+            `Failed to reduce stock for item "${inventoryItemDetails.name}" (ID: ${inventoryItemDetails.uid}) via AddItemsDialog. Error: ${stockDeductionResult.error}`
+          );
+          toast.error(
+            `Falha ao deduzir estoque para ${inventoryItemDetails.name} ao adicionar: ${stockDeductionResult.error}`
+          );
+        }
+      }
+      // --- End Stock Deduction Logic ---
 
       toast.success("Item added and order updated");
       if (onItemsAdded) onItemsAdded();

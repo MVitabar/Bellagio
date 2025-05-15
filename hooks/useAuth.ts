@@ -14,6 +14,11 @@ export function useAuth() {
   const { auth } = useFirebase();
 
   useEffect(() => {
+    if (!auth) { 
+      setLoading(false); 
+      return; 
+    }
+
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser: FirebaseUser | null) => {
       const db = getFirestore();
       if (firebaseUser) {
@@ -46,7 +51,7 @@ export function useAuth() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth]);
 
   return {
     user,

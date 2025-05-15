@@ -1,3 +1,4 @@
+import { Timestamp } from 'firebase/firestore';
 import { DietaryRestriction } from './menu'; // Import if needed for OrderItem or Order
 
 // Order Management Types
@@ -9,7 +10,7 @@ export type BaseOrderStatus =
   | 'Pronto para servir' // Cuando el bar o la cocina lo deja listo
   | 'Entregue'           // Cuando el pedido es llevado a la mesa
   | 'Cancelado'        // Cuando sea cancelado
-  | 'Pago'              // Cuando ya fue pagado
+  | 'Pago'              // Cuando ya fue pagado;
 
 // Alias for clarity, ensure consistency
 export type OrderStatus = BaseOrderStatus;
@@ -30,19 +31,18 @@ export interface OrderItem {
   stock: number;  // Changed from 'number | null' to 'number'
   unit: string;
   notes: string;
-  description?: string;
-  customDietaryRestrictions: string[]; // Free text for specific needs
-  // Inherited or specific dietary flags
+  status: OrderItemStatus;
   isVegetarian: boolean;
   isVegan: boolean;
   isGlutenFree: boolean;
   isLactoseFree: boolean;
-  status: string; // Status of the individual item
+  customDietaryRestrictions: string[]; // Free text for specific needs
+  description?: string;
 }
 
 export interface PaymentInfo {
   amount: number;
-  method: string;
+  method: PaymentMethod;
   processedAt: Date;
 }
 
@@ -55,20 +55,20 @@ export interface Order {
   subtotal: number; // Total before discounts, taxes
   discount: number;
   // Add tax, serviceCharge if applicable
-  status: OrderStatus | string; // Permitimos string para manejar otros estados
+  status: OrderStatus; // Permitimos string para manejar otros estados
   orderType: 'table' | 'counter' | 'takeaway';
   // 'type' seems redundant if 'orderType' exists, keep one
   // type?: 'table' | 'counter' | 'takeaway'; 
-  paymentMethod: string;
+  paymentMethod: PaymentMethod;
   paymentInfo: PaymentInfo; // Could be an array if multiple payments
   tableId: string; // Reference to the Table ID if type is 'table'
   tableNumber: number; // Table number if type is 'table'
   mapId?: string; // Reference to TableMap ID if type is 'table'
   waiter: string; // Waiter's name or ID
   notes?: string; // General notes for the order
-  createdAt: Date; // Timestamp or Date object
-  updatedAt: Date;
-  closedAt: Date | null; // Timestamp when the order was finalized
+  createdAt: Date | Timestamp; // Timestamp or Date object
+  updatedAt: Date | Timestamp;
+  closedAt: Date | Timestamp | null; // Timestamp when the order was finalized
   specialRequests?: string;
   dietaryRestrictions?: string[]; // Overall order dietary notes, e.g., ['gluten-free', 'vegan']
   createdBy?: string; // Could be UID or name of the initial creator

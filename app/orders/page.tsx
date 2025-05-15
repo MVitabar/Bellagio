@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Search, MoreHorizontal, Edit, Trash, X, Eye, PlusSquare, Repeat, CreditCard } from "lucide-react"
 import Link from "next/link"
 import { t, TFunction } from 'i18next';
-import { Order, OrderStatus, FlexibleOrderStatus, BaseOrderStatus, OrderItem, UserRole, User, PaymentInfo, PaymentMethod } from "@/types"
+import { BaseOrderStatus, FlexibleOrderStatus, Order, OrderItem, PaymentInfo, PaymentMethod } from "@/types/order"
 import { 
   collection, 
   query, 
@@ -51,6 +51,8 @@ import {
   canViewOnlyDrinks,
 } from '@/lib/orderFilters';
 import { CloseOrderDialog } from "./components/close-order-dialog"
+import { UserRole } from "@/types";
+import { User } from "firebase/auth";
 
 // Language codes
 type LanguageCode = 'en' | 'es' | 'pt';
@@ -137,6 +139,14 @@ function getOrderTypeLabel(orderType?: string, t?: TFunction): string {
     : t('orders.types.unknown');
 }
 
+// Función para validar el método de pago
+const validatePaymentMethod = (method: string): PaymentMethod => {
+  const validMethods: PaymentMethod[] = ['cash', 'card', 'pix', 'credit', 'debit', 'other'];
+  return validMethods.includes(method as PaymentMethod) 
+    ? (method as PaymentMethod) 
+    : 'other';
+};
+
 export default function OrdersPage() {
   const { t, i18n }: { t: TFunction, i18n: any } = useI18n()
   const { db } = useFirebase()
@@ -210,12 +220,12 @@ export default function OrdersPage() {
       const fetchedOrders = snapshot.docs.map(doc => {
         const data = doc.data();
         const resolvedWaiterName = data.waiterId 
-          ? usersMap.get(data.waiterId)?.name || data.waiter || 'N/A'
+          ? usersMap.get(data.waiterId)?.displayName || data.waiter || 'N/A'
           : data.waiter || 'N/A';
 
         const paymentInfo: PaymentInfo = {
           amount: Number(data.paymentInfo?.amount || data.total || 0),
-          method: String(data.paymentInfo?.method || data.paymentMethod || 'other'),
+          method: validatePaymentMethod(data.paymentInfo?.method || data.paymentMethod || 'other'),
           processedAt: new Date(data.paymentInfo?.processedAt?.toDate?.() || data.updatedAt?.toDate?.() || Date.now())
         };
 

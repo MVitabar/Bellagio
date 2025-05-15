@@ -2,7 +2,7 @@
 import React, { ComponentType } from 'react'
 import { usePermissions } from '@/hooks/usePermissions'
 import { UnauthorizedAccess } from './unauthorized'
-import { ModulePermissions, PermissionProps } from '@/types';
+import { PermissionProps } from '@/types/permissions';
 
 export function withPermissions<P extends object>(
   WrappedComponent: ComponentType<P>, 
@@ -44,7 +44,7 @@ export const ProtectedOrderCreation = withPermissions(
   ExampleProtectedComponent, 
   {
     requiredView: 'orders',
-    requiredAction: 'createOrder'
+    requiredAction: 'create'
   }
 )
 

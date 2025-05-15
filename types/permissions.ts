@@ -153,20 +153,20 @@ export const ROLE_PERMISSIONS: Record<UserRole, ModulePermissions> = {
     notifications: { view: true, create: false, update: false, delete: false },
     'users-management': { view: false, create: false, update: false, delete: false },
     dashboard: { view: false, create: false, update: false, delete: false },
-    orders: { view: true, create: false, update: false, delete: false },
+    orders: { view: true, create: false, update: true, delete: false },
     tables: { view: true, create: false, update: false, delete: false },
     inventory: { view: true, create: false, update: false, delete: false },
     reports: { view: false, create: false, update: false, delete: false },
     settings: {
-      view: false,
+      view: true,
       create: false,
-      update: false,
+      update: true,
       delete: false,
       sections: {
-        profile: false,
-        appearance: false,
-        language: false,
-        notifications: false,
+        profile: true,
+        appearance: true,
+        language: true,
+        notifications: true,
         company: false,
         security: false,
         billing: false,
@@ -214,3 +214,12 @@ export function hasPermission(
   // Para otros roles, verificar en ROLE_PERMISSIONS
   return ROLE_PERMISSIONS[role]?.[module]?.[action] ?? false;
 }
+
+export interface PermissionProps {
+  requiredView?: keyof ModulePermissions;
+  requiredAction?: keyof Permission;
+  // También podrías necesitar el módulo específico si la acción no es suficiente
+  // requiredModuleForAction?: keyof ModulePermissions; 
+}
+
+export { UserRole };

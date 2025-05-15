@@ -10,9 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Search, MoreHorizontal, UserPlus, Edit, Trash2, Copy } from "lucide-react"
+import { Search, UserPlus, Edit, Trash2, Copy } from "lucide-react"
 import Link from "next/link"
 import { User } from "@/types"
 import { usePermissions } from "@/components/permissions-provider"
@@ -22,10 +21,8 @@ import {
   DialogContent, 
   DialogDescription, 
   DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogFooter,
-  DialogClose
+  DialogTitle,
+  DialogFooter
 } from "@/components/ui/dialog"
 
 // Helper function to translate roles to Portuguese
@@ -36,8 +33,8 @@ const translateRolePt = (role: string | undefined): string => {
     case 'admin': return "Administrador";
     case 'manager': return "Gerente";
     case 'waiter': return "Garçom";
-    case 'kitchen': return "Cozinha";
-    case 'cashier': return "Caixa";
+    case 'chef': return "Chef";
+    case 'barman': return "Barman";
     default: return "Função Desconhecida";
   }
 };

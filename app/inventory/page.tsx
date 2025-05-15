@@ -153,6 +153,13 @@ export default function InventoryPage() {
       if (loadingCategories) return; // Still loading categories, wait.
     }
 
+    // Check if db is available before proceeding
+    if (!db) {
+      setError("Erro ao buscar itens do inventário"); // Add translation
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -166,7 +173,7 @@ export default function InventoryPage() {
             const itemData = itemDoc.data();
             return {
               uid: itemDoc.id, // Firestore document ID of the item
-              id: itemDoc.id, // spesso uid e id sono usati in modo intercambiabile, assicurati coerenza
+              id: itemDoc.id, // spesso uid e id são usados em modo intercambiável, assicurati coerenza
               category: category.id, // Store the category ID
               name: itemData.name || '',
               quantity: itemData.quantity === undefined ? null : itemData.quantity, // Handle undefined quantity

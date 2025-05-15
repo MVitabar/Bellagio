@@ -1,9 +1,15 @@
 // types/reports.ts
 
-export interface ExcelReportTableProps {
-  title: string;
-  data: any[]; // Consider making this more specific if possible, e.g., Record<string, any>[] or a union of specific report data types
-  headerColor?: string;
+import { Order } from './order';
+import { TableItem } from './table';
+import { InventoryItem } from './inventory';
+
+export interface SalesData {
+  date: string;
+  totalRevenue: number;
+  orderCount: number;
+  averageTicket: number;
+  topSellingItems?: TopSellingItem[];
 }
 
 export interface TopSellingItem {
@@ -12,10 +18,29 @@ export interface TopSellingItem {
   quantitySold?: number;
 }
 
-export interface SalesData {
-  date: string;
-  totalRevenue: number;
-  orderCount: number;
-  averageTicket: number;
-  topSellingItems?: TopSellingItem[];
+export interface ExcelReportTableProps {
+  title: string;
+  data: any[];
+  columns: {
+    header: string;
+    accessorKey: string;
+  }[];
+  headerColor?: string;
+}
+
+export interface ExcelReportData {
+  sales: {
+    daily: SalesData[];
+    weekly: SalesData[];
+    monthly: SalesData[];
+    yearly: SalesData[];
+  };
+  inventory: InventoryItem[];
+  orders: Order[];
+  tables: TableItem[];
+  [key: string]: any;
+}
+
+export interface ExcelReportGeneratorProps {
+  reportData: ExcelReportData;
 }

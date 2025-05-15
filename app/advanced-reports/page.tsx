@@ -5,12 +5,11 @@ import { useAuth } from "@/components/auth-provider"
 import { useFirebase } from "@/components/firebase-provider"
 import { useI18n } from "@/components/i18n-provider"
 import {toast} from "sonner"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, FileSpreadsheet } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { collection, query, where, orderBy, getDocs, DocumentData } from "firebase/firestore"
 import { ExcelReportGenerator } from "@/components/reports/excel-report-generator"
 import { 
-  Order, 
+  OrderType as Order, 
   InventoryItem, 
   ReportDataAdvanced, 
   SalesData, 
@@ -18,10 +17,12 @@ import {
   StaffData, 
   CustomersData, 
   ReservationsData,
-  User,
   SalesDataAdvanced,
   CustomerRecord,
-  ReservationEntry
+  ReservationEntry,
+  TableItem,
+  SalesCategoryData,
+  ExcelReportData
 } from "@/types"
 
 const AdvancedReportsPage = () => {
@@ -77,6 +78,7 @@ const AdvancedReportsPage = () => {
     },
     orders: [],
     inventory: [],
+    tables: [],
     financial: generateDefaultFinancialData(),
     staff: generateDefaultStaffData(),
     customers: generateDefaultCustomersData(),
@@ -115,6 +117,7 @@ const AdvancedReportsPage = () => {
           },
           orders: [],
           inventory: [],
+          tables: [],
           financial: generateDefaultFinancialData(),
           staff: generateDefaultStaffData(),
           customers: generateDefaultCustomersData(),
@@ -125,11 +128,13 @@ const AdvancedReportsPage = () => {
       const orders = await fetchOrdersData()
       const inventory = await fetchInventoryData()
       const salesData = await fetchSalesData()
+      const tables = await fetchTablesData()
 
       return {
         orders,
         inventory,
         sales: convertSalesDataToAdvanced(salesData),
+        tables,
         financial: generateDefaultFinancialData(),
         staff: generateDefaultStaffData(),
         customers: generateDefaultCustomersData(),
@@ -149,6 +154,7 @@ const AdvancedReportsPage = () => {
         },
         orders: [],
         inventory: [],
+        tables: [],
         financial: generateDefaultFinancialData(),
         staff: generateDefaultStaffData(),
         customers: generateDefaultCustomersData(),
@@ -465,83 +471,70 @@ const AdvancedReportsPage = () => {
     }
   }
 
-  const convertReportDataForGenerator = (reportData: ReportDataAdvanced): { 
-    orders?: Order[]; 
-    inventory?: InventoryItem[]; 
-    sales?: SalesData; 
-    financial?: { category: string; amount: number; percentage: number; }[];
-    staff?: { name: string; role: string; performance: number; shifts: number; }[];
-    customers?: { 
-      uid: string; 
-      name: string; 
-      email?: string; 
-      phone?: string; 
-      visits: number; 
-      lastVisit: string; 
-      totalSpent?: number; 
-      loyaltyTier?: string; 
-    }[];
-    reservations?: { 
-      id: string; 
-      customerName: string; 
-      reservationDate: string; 
-      partySize: number; 
-      status: string; 
-      notes?: string;
-    }[];
-  } => ({
-    orders: reportData.orders,
-    inventory: reportData.inventory,
+  const fetchTablesData = async (): Promise<TableItem[]> => {
+    if (!db) return [];
+    try {
+      const tablesRef = collection(db, "tables");
+      const querySnapshot = await getDocs(tablesRef);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TableItem));
+    } catch (error) {
+      console.error("Error fetching tables data:", error);
+      toast.error(t("errors.fetchTablesData"));
+      return [];
+    }
+  };
+
+  const convertReportDataForGenerator = (data: ReportDataAdvanced): ExcelReportData => ({
     sales: {
-      date: new Date().toISOString(), // Convert Date to ISOString
-      totalRevenue: parseFloat(
-        String(reportData.sales.summary.find(s => s.label === t("totalSales"))?.value)
-          .replace('$', '')
-          .replace(',', '') || '0'
-      ),
-      orderCount: parseInt(
-        String(reportData.sales.summary.find(s => s.label === t("totalOrders"))?.value) || '0'
-      ),
-      averageTicket: parseFloat(
-        String(reportData.sales.summary.find(s => s.label === t("averageTicket"))?.value)
-          .replace('$', '')
-          .replace(',', '') || '0'
-      ),
-      topSellingItems: reportData.sales.data.map(item => ({
-        itemName: String(item.category),
-        quantity: 0, // We might need to adjust this if quantity is not available
-        revenue: Number(item.amount) || 0
-      }))
+      daily: data.sales.data.map((item: SalesCategoryData) => ({
+        date: new Date().toISOString(), 
+        totalRevenue: item.amount,
+        orderCount: 0, 
+        averageTicket: 0, 
+        topSellingItems: [
+          {
+            itemName: item.category, 
+            revenue: item.amount, 
+            quantitySold: 0 
+          }
+        ]
+      })),
+      weekly: [], 
+      monthly: [], 
+      yearly: [] 
     },
-    customers: reportData.customers?.data?.map((customer: CustomerRecord) => ({
-      uid: customer.uid, 
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      visits: customer.visits,
-      lastVisit: customer.lastVisit, // Already a string from CustomerRecord
-      totalSpent: customer.totalSpent,
-      loyaltyTier: customer.loyaltyTier
-    })),
-    financial: reportData.financial ? Object.entries(reportData.financial).map(([category, data]) => ({
+    inventory: data.inventory || [],
+    orders: data.orders || [],
+    tables: data.tables || [],
+    financial: data.financial ? Object.entries(data.financial).map(([category, data]) => ({
       category,
       amount: data.total || 0,
       percentage: data.percentage || 0
     })) : [],
-    staff: reportData.staff ? Object.entries(reportData.staff).map(([name, data]) => ({
+    staff: data.staff ? Object.entries(data.staff).map(([name, data]) => ({
       name,
       role: data.role || '',
       performance: data.performance || 0,
       shifts: data.shifts || 0
     })) : [],
-    reservations: reportData.reservations ? Object.entries(reportData.reservations).map(([_, data]) => ({
+    reservations: data.reservations ? Object.entries(data.reservations).map(([_, data]) => ({
       id: data.id,
       customerName: data.customerName,
       reservationDate: data.reservationDate,
       partySize: data.partySize,
       status: data.status,
       notes: data.notes
-    })) : []
+    })) : [],
+    customers: data.customers?.data?.map((customer: CustomerRecord) => ({
+      uid: customer.uid, 
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      visits: customer.visits,
+      lastVisit: customer.lastVisit, 
+      totalSpent: customer.totalSpent,
+      loyaltyTier: customer.loyaltyTier
+    })),
   })
 
   useEffect(() => {

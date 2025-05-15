@@ -1,10 +1,20 @@
 import { Order } from './order'; // Import Order type for props
+import { Timestamp } from 'firebase/firestore';
 
 // Table and Seating Management
-export type TableStatus = "available" | "occupied" | "reserved" | "maintenance" | "ordering" | "preparing" | "ready" | "served";
+export type TableStatus = 
+  | "available" 
+  | "occupied" 
+  | "reserved" 
+  | "maintenance" 
+  | "ordering" 
+  | "preparing" 
+  | "ready" 
+  | "served";
 
 export interface TableItem {
   uid: string;
+  id?: string;
   number: number;
   seats: number;
   shape: "square" | "round" | "rectangle";
@@ -14,42 +24,35 @@ export interface TableItem {
   y: number;
   status: TableStatus;
   activeOrderId?: string;
-  id?: string; // Often same as uid in Firestore context
-  name?: string; // Optional name/label for the table
-  mapId: string; // Reference to the TableMap this table belongs to
+  name?: string;
+  mapId: string;
 }
+
+// Alias para mantener compatibilidad con código existente
+export type RestaurantTable = TableItem;
 
 export interface TableMap {
-  id: string; // Firestore document ID
-  uid: string; // User ID who created/owns the map
+  id: string;
+  uid: string;
   name: string;
   description?: string;
-  tables: TableItem[]; // Embedded or references?
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// This seems slightly redundant with TableItem, perhaps a simplified version?
-// Or maybe intended for initial creation data?
-export interface RestaurantTable {
-  id?: string;
-  name: string;
-  capacity: number;
-  x?: number;
-  y?: number;
-  mapId: string;
-  status: 'available' | 'occupied' | 'reserved'; // Simpler status set?
+  layout?: {
+    tables: TableItem[];
+  };
+  tables: TableItem[];
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
 }
 
 // Component Prop Interfaces related to Tables
 
 export interface TableCardProps {
   table: TableItem;
+  onCreateOrder?: () => void;
   hasActiveOrder?: boolean;
   orderStatus?: string; // Consider using OrderStatus from ./order
   onEdit?: () => void;
   onDelete?: () => void;
-  onCreateOrder?: () => void;
   onViewOrder?: (order: Order) => void; // Needs Order type
   onMarkAsServed?: () => void;
   onCloseOrder?: () => void;

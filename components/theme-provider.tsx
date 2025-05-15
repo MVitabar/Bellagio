@@ -6,7 +6,7 @@ import {
   ThemeContextProps, 
   ThemeProviderProps, 
   Theme 
-} from "@/types"
+} from "@/types/theme"
 
 const ThemeContext = createContext<ThemeContextProps>({
   theme: "system",

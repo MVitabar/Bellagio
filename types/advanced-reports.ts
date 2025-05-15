@@ -1,5 +1,6 @@
 import { Order } from './order';
 import { InventoryItem } from './inventory';
+import { TableItem } from './table';
 
 // For Advanced Reports Page
 export interface FinancialEntry {
@@ -79,4 +80,5 @@ export interface ReportDataAdvanced {
   staff: StaffData;
   customers: CustomersData;
   reservations: ReservationsData;
+  tables: TableItem[];
 }

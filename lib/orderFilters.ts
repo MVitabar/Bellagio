@@ -1,4 +1,4 @@
-import { Order, OrderItem } from '@/types/index';
+import { OrderType as Order, OrderItem } from '@/types/index';
 import { UserRole } from '@/types/user';
 import { OrderItemStatus, OrderStatus } from '@/types/index';
 

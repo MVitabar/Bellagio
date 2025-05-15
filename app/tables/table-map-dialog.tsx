@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useTranslation } from 'react-i18next'
-import { TableMap } from './table-maps-list'
+import { TableMap } from '@/types/table'
 import { useFirebase } from '@/components/firebase-provider'
 import { useAuth } from '@/components/auth-provider'
 import { doc, collection, updateDoc, setDoc, query, getDocs, serverTimestamp } from 'firebase/firestore'
@@ -61,6 +61,7 @@ export default function TableMapDialog({
         const tableMapRef = doc(collection(db, `tableMaps`));
         await setDoc(tableMapRef, {
           ...tableMapData,
+          uid: user.uid,
           id: tableMapRef.id,
           createdAt: serverTimestamp()
         })

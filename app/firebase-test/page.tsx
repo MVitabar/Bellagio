@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 
 export default function FirebaseTestPage() {
-  const { app, auth, db, isInitialized, error } = useFirebase()
+  const { app, auth, db, loading, initializationError } = useFirebase()
   const [testResults, setTestResults] = useState<Record<string, boolean | null>>({
     app: null,
     auth: null,
@@ -23,6 +23,32 @@ export default function FirebaseTestPage() {
     })
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Loading...</AlertTitle>
+          <AlertDescription>Connecting to Firebase. Please wait.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (initializationError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertTitle>Firebase Initialization Error</AlertTitle>
+          <AlertDescription>
+            {initializationError.message || "An unknown error occurred during Firebase initialization."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -34,20 +60,12 @@ export default function FirebaseTestPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span>Firebase Initialized:</span>
-              {isInitialized ? (
+              {!!app && !!auth && !!db ? (
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-yellow-500" />
               )}
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error.message}</AlertDescription>
-              </Alert>
-            )}
 
             {testResults.app !== null && (
               <div className="space-y-2 mt-4">
@@ -80,7 +98,7 @@ export default function FirebaseTestPage() {
               </div>
             )}
 
-            {isInitialized && !error && (
+            {!!app && !initializationError && (
               <div className="mt-4 text-sm">
                 <p>
                   <strong>Firebase Config:</strong>
@@ -112,4 +130,3 @@ export default function FirebaseTestPage() {
     </div>
   )
 }
-

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus } from 'lucide-react'
 import type { TableMap } from '@/types/table'
-import type { RestaurantTable } from '@/types/table'
+import type { TableItem } from '@/types/table'
 import { useFirebase } from '@/components/firebase-provider'
 import { useAuth } from '@/components/auth-provider'
 import { doc, serverTimestamp, updateDoc, arrayUnion, getDoc } from 'firebase/firestore'
@@ -73,12 +73,19 @@ export default function TableDialog({
     setIsLoading(true)
     try {
       // Crear nueva comanda
-      const newTable: RestaurantTable = {
+      const newTable: TableItem = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        uid: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: tableName,
+        number: parseInt(tableName.replace(/\D/g, '')) || 0,
+        seats: 4,  // Default capacity
+        shape: "square",
+        width: 100,
+        height: 100,
+        x: 0,
+        y: 0,
         mapId: tableMap.id,
-        status: 'available',
-        capacity: 4  // Default capacity of 4 seats
+        status: 'available'
       }
 
       // Actualizar el array tables en el mapa

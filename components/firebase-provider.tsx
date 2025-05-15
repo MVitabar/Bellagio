@@ -1,40 +1,38 @@
-"use client"
-
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
-import { getFirestore, type Firestore } from "firebase/firestore"
-import { getAuth, type Auth } from "firebase/auth"
-import { FirebaseContextType, User } from "@/types"
+import { initializeApp, getApps, FirebaseApp } from "firebase/app"
+import { getFirestore, Firestore } from "firebase/firestore"
+import { getAuth, Auth } from "firebase/auth"
+import { User, UserRole } from '@/types'
+import { FirebaseContextType } from '@/types/firebase'
 import { useAuth } from "@/components/auth-provider"
 import { firebaseConfig } from '@/lib/firebase-config'
 
 const FirebaseContext = createContext<FirebaseContextType>({
   app: null,
-  db: null,
   auth: null,
+  db: null,
   user: null,
-  isInitialized: false,
-  error: null,
+  loading: true,
+  initializationError: null,
+  validateAndPropagateUser: async () => null,
 })
 
 export const useFirebase = () => useContext(FirebaseContext)
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const { user: authUser } = useAuth()
-  const [firebaseState, setFirebaseState] = useState<FirebaseContextType>({
-    app: null,
-    db: null,
-    auth: null,
-    user: null,
-    isInitialized: false,
-    error: null,
-  })
+  const [app, setApp] = useState<FirebaseApp | null>(null)
+  const [auth, setAuth] = useState<Auth | null>(null)
+  const [db, setDb] = useState<Firestore | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [initializationError, setInitializationError] = useState<Error | null>(null)
 
   useEffect(() => {
     let app: FirebaseApp | null = null
     let db: Firestore | null = null
     let auth: Auth | null = null
-    let initializationError: Error | null = null
+    let error: Error | null = null
 
     try {
       // Validate configuration
@@ -58,78 +56,79 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('❌ Firebase Initialization Error:', error);
       
-      initializationError = error instanceof Error 
+      error = error instanceof Error 
         ? error 
         : new Error('Unknown Firebase initialization error')
     } finally {
-      setFirebaseState(prev => ({
-        ...prev,
-        app: app || null,
-        db: db || null,
-        auth: auth || null,
-        isInitialized: true,
-        error: initializationError,
-      }))
+      setApp(app)
+      setAuth(auth)
+      setDb(db)
+      setInitializationError(error)
+      setLoading(false)
     }
   }, [])
 
-  const validateAndPropagateUser = (user: User | null) => {
-    // Comprehensive user validation with fallback mechanisms
-    const isValidUser = user && (
-      // Primary validation
-      (user.uid && user.email) || 
-      // Fallback validation using Firebase Auth properties
-      (user.uid && user.email)
-    )
+  const validateAndPropagateUser = async (authUser: any): Promise<User | null> => {
+    if (!authUser) {
+      setUser(null)
+      return null
+    }
+
+    const isValidUser = (user: any): user is User => {
+      return (
+        user &&
+        typeof user.uid === 'string' &&
+        (typeof user.email === 'string' || user.email === null) &&
+        typeof user.role === 'string' &&
+        Object.values(UserRole).includes(user.role as UserRole)
+      )
+    }
 
     // Attempt to reconstruct user if validation fails
-    let reconstructedUser: User | null = null
-    if (!isValidUser && authUser) {
-      reconstructedUser = {
-        uid: authUser.uid || authUser.uid,
+    if (!isValidUser(authUser)) {
+      const reconstructedUser: User = {
+        id: authUser.uid,
+        uid: authUser.uid,
         email: authUser.email || '',
         username: authUser.displayName || authUser.username || '',
-        role: authUser.role || 'user',
+        role: authUser.role || UserRole.WAITER,
         phoneNumber: authUser.phoneNumber,
         position: '',
         status: authUser.status || 'active',
         emailVerified: authUser.emailVerified ?? false,
         loading: false,
         login: async (email: string, password: string) => {
-          // Placeholder implementation
           return { success: false, error: 'Not implemented' }
         },
         logout: async () => {
-          // Placeholder implementation
           return { success: false, error: 'Not implemented' }
         },
         signUp: async (email: string, password: string) => {
-          // Placeholder implementation
           return { success: false, error: 'Not implemented' }
         }
-      } as User
+      }
+
+      setUser(reconstructedUser)
+      return reconstructedUser
     }
 
-    // Return validated or reconstructed user
-    return isValidUser ? user : reconstructedUser
+    setUser(authUser)
+    return authUser
   }
 
   useEffect(() => {
-    setFirebaseState(prev => {
-      const validatedUser = validateAndPropagateUser(authUser)
-      
-      return {
-        ...prev,
-        user: validatedUser
-      }
-    })
+    validateAndPropagateUser(authUser)
   }, [authUser])
 
   useEffect(() => {
-    if (firebaseState.error) {
-      console.error('Firebase Error:', firebaseState.error);
+    if (initializationError) {
+      console.error('Firebase Error:', initializationError);
     }
-  }, [firebaseState])
+  }, [initializationError])
 
-  return <FirebaseContext.Provider value={firebaseState}>{children}</FirebaseContext.Provider>
+  return (
+    <FirebaseContext.Provider value={{ app, auth, db, user, loading, initializationError, validateAndPropagateUser }}>
+      {children}
+    </FirebaseContext.Provider>
+  )
 }

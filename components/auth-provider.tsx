@@ -55,12 +55,12 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext)
 
-const publicRoutes = ["/login", "/register", "/forgot-password", "/invitation"]
+const publicRoutes = ["/login", "/register", "/forgot-password", "/invitation/register"]
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const { db, auth, isInitialized, error } = useFirebase()
+  const { db, auth } = useFirebase()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -157,9 +157,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Create user in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth!, email, password);
       const firebaseUser = userCredential.user;
-
+      if (!firebaseUser) {
+        return {
+          success: false,
+          error: 'User creation failed',
+          needsPasswordChange: false
+        };
+      }
+      if (!db) {
+        return {
+          success: false,
+          error: 'Database not found',
+          needsPasswordChange: false
+        };
+      }
       // Initialize user profile
       const newUser = await initializeUserProfile(
         firebaseUser, 
@@ -176,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Automatically sign in the user
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth!, email, password);
 
       // Send email verification only if not verified
       if (!firebaseUser.emailVerified) {
@@ -285,7 +298,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Attempt authentication
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth!, email, password);
       const firebaseUser = userCredential.user;
 
       // Fetch user details
@@ -405,7 +418,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      await signOut(auth);
+      await signOut(auth!);
       setUser(null);
       
       toast.success(t("auth.logout.success", { username: user?.username || "Guest" }))
@@ -537,7 +550,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Immediate loading state if Firebase is not initialized
-    if (!isInitialized || !auth) {
+    if (!db || !auth) {
       setLoading(true)
       return
     }
@@ -566,7 +579,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     return () => unsubscribe()
-  }, [auth, isInitialized, pathname, router, toast])
+  }, [auth, db, pathname, router, toast])
 
   function t(key: string, params?: Record<string, string | number>): string {
     console.warn(`Translation not implemented for key: ${key}`)

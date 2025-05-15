@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { Loader2 } from "lucide-react"
-import { NotificationPreferences, BooleanNotificationPreferenceKey } from "@/types"
+import { NotificationPreferences, BooleanNotificationPreferenceKey } from "@/types/notification-preferences"
 
 export function NotificationSettings() {
   const { user } = useAuth()
@@ -22,13 +22,16 @@ export function NotificationSettings() {
   const [saving, setSaving] = useState(false)
   const [preferences, setPreferences] = useState<NotificationPreferences>({
     newOrders: true,
-    orderUpdates: true,
-    inventoryAlerts: true,
-    systemAnnouncements: true,
+    orderStatusUpdates: true,
+    lowInventoryAlerts: true,
+    systemUpdates: true,
     dailyReports: false,
+    customerFeedback: true,
+    tableReservations: true,
+    staffMessages: true,
+    soundAlerts: true,
     emailNotifications: true,
     pushNotifications: true,
-    soundAlerts: true,
   })
 
   useEffect(() => {
@@ -104,22 +107,40 @@ export function NotificationSettings() {
         <div>
           <h3 className="text-lg font-medium mb-4">Tipos de Notificação</h3>
           <div className="space-y-4">
-            {(["newOrders", "orderUpdates", "inventoryAlerts", "systemAnnouncements", "dailyReports"] as Array<BooleanNotificationPreferenceKey>).map((key) => (
+            {([
+              "newOrders",
+              "orderStatusUpdates",
+              "lowInventoryAlerts",
+              "systemUpdates",
+              "dailyReports",
+              "customerFeedback",
+              "tableReservations",
+              "staffMessages",
+              "soundAlerts"
+            ] as Array<BooleanNotificationPreferenceKey>).map((key) => (
               <div key={String(key)} className="flex items-center justify-between">
                 <div>
                   <Label htmlFor={String(key)} className="font-medium">
                     {key === 'newOrders' ? 'Novos Pedidos' :
-                      key === 'orderUpdates' ? 'Atualizações de Pedidos' :
-                        key === 'inventoryAlerts' ? 'Alertas de Estoque' :
-                          key === 'systemAnnouncements' ? 'Anúncios do Sistema' :
-                            key === 'dailyReports' ? 'Relatórios Diários' : String(key)}
+                     key === 'orderStatusUpdates' ? 'Atualizações de Pedidos' :
+                     key === 'lowInventoryAlerts' ? 'Alertas de Estoque' :
+                     key === 'systemUpdates' ? 'Atualizações do Sistema' :
+                     key === 'dailyReports' ? 'Relatórios Diários' :
+                     key === 'customerFeedback' ? 'Feedback de Clientes' :
+                     key === 'tableReservations' ? 'Reservas de Mesa' :
+                     key === 'staffMessages' ? 'Mensagens da Equipe' :
+                     key === 'soundAlerts' ? 'Alertas Sonoros' : String(key)}
                   </Label>
                   <p className="text-sm text-muted-foreground">
                     {key === 'newOrders' ? 'Receba notificações para cada novo pedido recebido.' :
-                      key === 'orderUpdates' ? 'Seja notificado sobre mudanças no status dos pedidos.' :
-                        key === 'inventoryAlerts' ? 'Receba alertas quando os itens do estoque estiverem baixos.' :
-                          key === 'systemAnnouncements' ? 'Mantenha-se informado sobre atualizações importantes do sistema.' :
-                            key === 'dailyReports' ? 'Receba um resumo diário das atividades.' : ''}
+                     key === 'orderStatusUpdates' ? 'Seja notificado sobre mudanças no status dos pedidos.' :
+                     key === 'lowInventoryAlerts' ? 'Receba alertas quando os itens do estoque estiverem baixos.' :
+                     key === 'systemUpdates' ? 'Receba atualizações importantes do sistema.' :
+                     key === 'dailyReports' ? 'Receba relatórios diários de vendas e desempenho.' :
+                     key === 'customerFeedback' ? 'Receba notificações de feedback dos clientes.' :
+                     key === 'tableReservations' ? 'Seja notificado sobre novas reservas de mesa.' :
+                     key === 'staffMessages' ? 'Receba mensagens importantes da equipe.' :
+                     key === 'soundAlerts' ? 'Ative ou desative alertas sonoros.' : ''}
                   </p>
                 </div>
                 <Switch
@@ -137,18 +158,16 @@ export function NotificationSettings() {
         <div>
           <h3 className="text-lg font-medium mb-4">Métodos de Entrega</h3>
           <div className="space-y-4">
-            {(["emailNotifications", "pushNotifications", "soundAlerts"] as Array<BooleanNotificationPreferenceKey>).map((key) => (
+            {(["emailNotifications", "pushNotifications"] as Array<BooleanNotificationPreferenceKey>).map((key) => (
               <div key={String(key)} className="flex items-center justify-between">
                 <div>
                   <Label htmlFor={String(key)} className="font-medium">
                     {key === 'emailNotifications' ? 'Notificações por Email' :
-                      key === 'pushNotifications' ? 'Notificações Push' :
-                        key === 'soundAlerts' ? 'Alertas Sonoros' : String(key)}
+                      key === 'pushNotifications' ? 'Notificações Push' : String(key)}
                   </Label>
                   <p className="text-sm text-muted-foreground">
                     {key === 'emailNotifications' ? 'Receba notificações importantes por email.' :
-                      key === 'pushNotifications' ? 'Receba notificações push no seu dispositivo.' :
-                        key === 'soundAlerts' ? 'Ative alertas sonoros para notificações.' : ''}
+                      key === 'pushNotifications' ? 'Receba notificações push no seu dispositivo.' : ''}
                   </p>
                 </div>
                 <Switch

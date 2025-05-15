@@ -30,7 +30,7 @@ import {
   OrderItem, 
   MenuItem, 
   BaseOrderStatus, 
-  Order,
+  OrderType as Order,
   User,
   RestaurantTable,
   PaymentInfo,
@@ -65,12 +65,14 @@ export function OrderForm({
   initialTableNumber, 
   onOrderCreated,
   user: propUser,
-  table
+  table,
+  onCancel
 }: { 
   initialTableNumber?: string, 
   onOrderCreated?: (order: Order) => void | Promise<any>,
   user?: User | null,
-  table?: RestaurantTable
+  table?: TableItem | RestaurantTable,
+  onCancel?: () => void
 }) {
   const { db } = useFirebase()
   const { user: contextUser } = useAuth()
@@ -155,9 +157,9 @@ export function OrderForm({
       category: menuItem.category || 'uncategorized',
       price: menuItem.price,
       quantity,
-      unit: menuItem.unit || '',
-      stock: requiresStockCheck ? (menuItem.stock || 0) : null,
-      notes,
+      unit: menuItem.unit || 'unidad',
+      stock: requiresStockCheck ? (menuItem.stock || 0) : 0,
+      notes: notes || '',
       status: 'pending',
       isVegetarian: itemDietaryRestrictions.includes('vegetarian'),
       isVegan: itemDietaryRestrictions.includes('vegan'),
@@ -378,9 +380,9 @@ export function OrderForm({
         createdBy: user.uid,
         id: '', // Will be set by Firestore
         tableId: orderType === 'table' ? (selectedTable?.uid || table?.id || '') : '',
-        tableNumber: orderType === 'table' 
-        ? Number(tableNumber || 0)
-        : 0,
+        tableNumber: orderType === 'table'
+          ? Number(tableNumber || 0)
+          : 0,
         orderType,
         status: 'Pendente' as BaseOrderStatus,
         items: orderItems,
@@ -389,15 +391,17 @@ export function OrderForm({
         discount,
         createdAt: new Date(),
         updatedAt: new Date(),
-        waiter: user.username,
-        uid: user?.uid,
+        waiter: user?.username || user?.displayName || 'Unknown',
+        uid: user?.uid || 'anonymous',
         paymentInfo: {
           method: 'other' as PaymentMethod,
-          amount: 0,
+          amount: calculateTotal(),
+          processedAt: new Date()
         },
         closedAt: null,
         ...(specialRequests && { specialRequests }),
         ...(dietaryRestrictions && { dietaryRestrictions }),
+        paymentMethod: "other"
       };
 
       // Use onOrderCreated callback if provided
@@ -440,12 +444,12 @@ export function OrderForm({
     // Prepare order object
     const newOrder: Order = {
       id: '', // Will be set by Firestore
-      uid: user?.uid || '',
+      uid: user?.uid || 'anonymous',
       // Usar el ID de la mesa proporcionado por la prop table o selectedTable
       tableId: orderType === 'table' ? (table?.id || selectedTable?.uid || '') : '',
-      tableNumber: orderType === 'table' 
-          ? Number(table?.name || selectedTable?.number || tableNumber || 0)
-          : 0,
+      tableNumber: orderType === 'table'
+        ? Number(table?.name || selectedTable?.number || tableNumber || 0)
+        : 0,
       orderType,
       status: 'Pendente',
       items: orderItems,
@@ -454,14 +458,22 @@ export function OrderForm({
       discount,
       createdAt: new Date(),
       updatedAt: new Date(),
-      waiter: user.username || '',
+      waiter: user?.username || user?.displayName || 'Unknown',
       paymentInfo: {
-        method: 'other',
-        amount: 0,
+        method: 'other' as PaymentMethod,
+        amount: calculateTotal(),
+        processedAt: new Date()
       },
       closedAt: null,
       ...(specialRequests && { specialRequests }),
       ...(dietaryRestrictions.length > 0 && { dietaryRestrictions }),
+      paymentMethod: "other"
+    };
+
+    const paymentInfo: PaymentInfo = {
+      method: 'other' as PaymentMethod,
+      amount: calculateTotal(),
+      processedAt: new Date()
     };
 
     // Call the onOrderCreated callback with the new order
@@ -1094,23 +1106,30 @@ export function OrderForm({
               {renderDiscountInput()}
             </div>
 
-            <Button 
-              onClick={handleCreateOrder} 
-              className="w-full" 
-              disabled={orderItems.length === 0 || (orderType === 'table' && !tableNumber.trim())}
-            >
-              Criar Pedido
-            </Button>
-            {orderItems.length === 0 && (
-              <p className="text-sm text-red-500 mt-2">
-                Nenhum item no pedido.
-              </p>
-            )}
-            {(orderType === 'table' && !tableNumber.trim()) && (
-              <p className="text-sm text-red-500 mt-2">
-                Nenhuma mesa selecionada para pedido na mesa.
-              </p>
-            )}
+            <div className="flex justify-end space-x-2 mt-4">
+              {onCancel && (
+                <Button variant="outline" onClick={onCancel}>
+                  Cancelar
+                </Button>
+              )}
+              <Button 
+                onClick={handleCreateOrder} 
+                className="w-full" 
+                disabled={orderItems.length === 0 || (orderType === 'table' && !tableNumber.trim())}
+              >
+                Criar Pedido
+              </Button>
+              {orderItems.length === 0 && (
+                <p className="text-sm text-red-500 mt-2">
+                  Nenhum item no pedido.
+                </p>
+              )}
+              {(orderType === 'table' && !tableNumber.trim()) && (
+                <p className="text-sm text-red-500 mt-2">
+                  Nenhuma mesa selecionada para pedido na mesa.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

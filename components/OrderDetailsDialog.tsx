@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { 
-  Order, 
   OrderDetailsDialogProps 
 } from "@/types"
 
@@ -28,11 +27,11 @@ export function OrderDetailsDialog({
 
   // Determine if the order can be edited based on its status
   const canEditOrder = 
-    order?.status === 'pending' || 
-    order?.status === 'ordering' || 
-    order?.status === 'preparing' ||
-    order?.status === 'ready' ||
-    order?.status === 'served'
+    order?.status === 'Pendente' || 
+    order?.status === 'Pronto para servir' ||
+    order?.status === 'Entregue' ||
+    order?.status === 'Cancelado' ||
+    order?.status === 'Pago'
 
   // If no order, return null
   if (!order) return null
@@ -56,7 +55,7 @@ export function OrderDetailsDialog({
                   variant="outline" 
                   size="sm"
                   onClick={() => {
-                    onEditOrder()
+                    onEditOrder(order)
                   }}
                 >
                   <Edit className="h-4 w-4 mr-2" />
@@ -79,8 +78,8 @@ export function OrderDetailsDialog({
           <div className="flex justify-between items-center">
             <span>{t("orderStatus")}:</span>
             <Badge variant={
-              order.status === "delivered" ? "default" : 
-              order.status === "preparing" ? "secondary" : 
+              order.status === "Entregue" ? "default" : 
+              order.status === "Pronto para servir" ? "secondary" : 
               "outline"
             }>
               {order.status ? t(order.status) : t("orderStatus.unknown")}

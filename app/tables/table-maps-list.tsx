@@ -1,13 +1,24 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { collection, getDocs, query, where, doc, onSnapshot, deleteDoc, writeBatch, Timestamp } from 'firebase/firestore'
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  deleteDoc, 
+  query, 
+  where, 
+  writeBatch, 
+  addDoc,
+  Timestamp 
+} from 'firebase/firestore'
 import { useFirebase } from '@/components/firebase-provider'
 import { useAuth } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Plus, Edit, Trash2, Eye } from 'lucide-react'
 import { toast } from 'sonner'
+import { TableItem, TableStatus, TableMap } from '@/types/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,91 +30,104 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import TableDialog from './table-dialog'
-import TableMapViewDialog from './table-map-view-dialog'
 import TableMapDialog from './table-map-dialog'
+import TableMapViewDialog from './table-map-view-dialog'
+import TableDialog from './table-dialog'
 import { clsx } from "@/lib/utils"
-import { TableStatus } from '@/types/table'
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Define interfaces
-export interface RestaurantTable {
-  id: string
-  name: string
-  mapId: string
-  capacity: number
-  status: TableStatus
-}
-
-export interface TableMap {
-  id: string
-  name: string
-  description?: string
-  layout?: {
-    tables: any[]
-  }
-  tables: RestaurantTable[]
-  createdAt: Timestamp | Date
-  updatedAt: Timestamp | Date
+interface TableMapWithId extends TableMap {
+  id: string;
 }
 
 interface TableMapsListProps {
-  onCreateMap?: () => void
+  onCreateMap?: () => void;
+  onMapDeleted?: () => void;
 }
 
-export default function TableMapsList({ onCreateMap }: TableMapsListProps) {
+// Función auxiliar para convertir Timestamp a Date
+const convertTimestampToDate = (timestamp: Timestamp | Date): Date => {
+  if (!timestamp) return new Date();
+  return timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
+}
+
+// Función para convertir nuestro TableMap local al tipo TableMap de @/types/table
+const convertToTableMapType = (map: TableMapWithId): TableMap => {
+  return {
+    ...map,
+    createdAt: convertTimestampToDate(map.createdAt),
+    updatedAt: convertTimestampToDate(map.updatedAt),
+    tables: map.tables.map(table => ({
+      ...table,
+      status: table.status || 'available'
+    }))
+  };
+}
+
+export default function TableMapsList({ onCreateMap, onMapDeleted }: TableMapsListProps) {
   const { db } = useFirebase()
-  const [tableMaps, setTableMaps] = useState<TableMap[]>([])
+  const { user } = useAuth()
+  const [tableMaps, setTableMaps] = useState<TableMapWithId[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedTableMap, setSelectedTableMap] = useState<TableMap | null>(null)
+  const [selectedTableMap, setSelectedTableMap] = useState<TableMapWithId | null>(null)
   const [isTableDialogOpen, setIsTableDialogOpen] = useState(false)
   const [isTableMapViewDialogOpen, setIsTableMapViewDialogOpen] = useState(false)
-  const [tableToDelete, setTableToDelete] = useState<TableMap | null>(null)
+  const [tableToDelete, setTableToDelete] = useState<TableMapWithId | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [editingMap, setEditingMap] = useState<TableMap | null>(null)
+  const [editingMap, setEditingMap] = useState<TableMapWithId | null>(null)
 
   useEffect(() => {
-    if (!db) return
+    if (!db || !user) return;
 
-    const unsubscribeMaps = onSnapshot(
-      collection(db, 'tableMaps'),
-      (snapshot) => {
-        const maps: TableMap[] = snapshot.docs.map(doc => {
-          const data = doc.data()
+    const fetchTableMaps = async () => {
+      try {
+        const q = query(collection(db, 'tableMaps'), where('uid', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        const maps = querySnapshot.docs.map(doc => {
+          const data = doc.data();
           return {
             id: doc.id,
-            name: data.name,
-            description: data.description,
-            layout: data.layout,
-            tables: data.tables || [],
-            createdAt: data.createdAt,
-            updatedAt: data.updatedAt
-          }
-        })
-        setTableMaps(maps)
-        setIsLoading(false)
-      },
-      (error) => {
-        console.error('Error fetching maps:', error)
-        toast.error('Erro ao carregar comandas')
-        setIsLoading(false)
+            uid: data.uid || user.uid,
+            name: data.name || '',
+            description: data.description || '',
+            layout: {
+              tables: (data.layout?.tables || []).map((t: any) => ({
+                ...t,
+                status: t.status || 'available'
+              }))
+            },
+            tables: (data.tables || []).map((t: any) => ({
+              ...t,
+              status: t.status || 'available'
+            })),
+            createdAt: data.createdAt || new Date(),
+            updatedAt: data.updatedAt || new Date()
+          };
+        });
+        setTableMaps(maps);
+      } catch (error) {
+        console.error('Error fetching table maps:', error);
+        toast.error('Erro ao carregar mapas');
+      } finally {
+        setIsLoading(false);
       }
-    )
+    };
 
-    return () => unsubscribeMaps()
-  }, [db])
+    fetchTableMaps();
+  }, [db, user]);
 
-  const handleAddTables = (tableMap: TableMap) => {
+  const handleAddTables = (tableMap: TableMapWithId) => {
     setSelectedTableMap(tableMap)
     setIsTableDialogOpen(true)
   }
 
-  const handleViewMap = (tableMap: TableMap) => {
+  const handleViewMap = (tableMap: TableMapWithId) => {
     setSelectedTableMap(tableMap)
     setIsTableMapViewDialogOpen(true)
   }
 
-  const handleEditMap = (map: TableMap) => {
+  const handleEditMap = (map: TableMapWithId) => {
     setEditingMap(map)
     setIsEditModalOpen(true)
   }
@@ -138,9 +162,34 @@ export default function TableMapsList({ onCreateMap }: TableMapsListProps) {
 
       toast.success('Mapa e comandas excluídos com sucesso')
       setTableToDelete(null)
+      onMapDeleted?.()
     } catch (error) {
       console.error('Error deleting table map:', error)
       toast.error('Erro ao excluir mapa')
+    }
+  }
+
+  const handleCreateMap = async () => {
+    if (!db || !user) return
+
+    try {
+      const newMap = {
+        uid: user.uid,  
+        name: `Mapa ${tableMaps.length + 1}`,
+        description: '',
+        layout: {
+          tables: []
+        },
+        tables: [],  
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+
+      const docRef = await addDoc(collection(db, 'tableMaps'), newMap)
+      toast.success('Mapa criado com sucesso')
+    } catch (error) {
+      console.error('Error creating table map:', error)
+      toast.error('Erro ao criar mapa')
     }
   }
 
@@ -169,7 +218,7 @@ export default function TableMapsList({ onCreateMap }: TableMapsListProps) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {tableMaps.map((map) => (
-            <Card key={map.id}>
+            <div key={map.id}>
               <CardHeader>
                 <CardTitle>{map.name}</CardTitle>
                 <CardDescription>
@@ -178,29 +227,10 @@ export default function TableMapsList({ onCreateMap }: TableMapsListProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Comandas ({map.tables?.length || 0})</h4>
-                  {map.tables && map.tables.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-2">
-                      {map.tables.map((table) => (
-                        <div 
-                          key={table.id}
-                          className={clsx(
-                            "flex items-center justify-center p-2 rounded-md text-sm font-medium",
-                            {
-                              "bg-green-100 text-green-700": table.status === "available",
-                              "bg-red-100 text-red-700": table.status === "occupied",
-                              "bg-yellow-100 text-yellow-700": table.status === "ordering",
-                              "bg-gray-100 text-gray-700": table.status === "maintenance"
-                            }
-                          )}
-                        >
-                          {table.name}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Nenhuma comanda adicionada</p>
-                  )}
+                  <h4 className="text-sm font-medium">Comandas</h4>
+                  <div className="grid grid-cols-4 gap-2">
+                    {/* Aquí se deben mostrar las comandas asociadas al mapa */}
+                  </div>
                 </div>
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">
@@ -214,32 +244,39 @@ export default function TableMapsList({ onCreateMap }: TableMapsListProps) {
                   tableToDelete={tableToDelete}
                 />
               </CardFooter>
-            </Card>
+            </div>
           ))}
         </div>
       )}
 
       {/* Diálogos */}
-      {selectedTableMap && (
-        <>
-          <TableDialog 
-            isOpen={isTableDialogOpen} 
-            onClose={() => setIsTableDialogOpen(false)}
-            tableMap={selectedTableMap}
-          />
-          <TableMapViewDialog 
-            isOpen={isTableMapViewDialogOpen} 
-            onClose={() => setIsTableMapViewDialogOpen(false)}
-            tableMap={selectedTableMap}
-          />
-        </>
+      {/* Dialog for Viewing Map Details */}
+      {selectedTableMap && isTableMapViewDialogOpen && (
+        <TableMapViewDialog 
+          isOpen={isTableMapViewDialogOpen} 
+          onClose={() => setIsTableMapViewDialogOpen(false)}
+          tableMap={convertToTableMapType(selectedTableMap)}
+        />
       )}
 
-      {isEditModalOpen && editingMap && (
+      {/* Dialog for Adding/Editing Tables within a Map */}
+      {isTableDialogOpen && selectedTableMap && ( 
+        <TableDialog
+          isOpen={isTableDialogOpen} 
+          onClose={() => {
+            setIsTableDialogOpen(false);
+            // setSelectedTableMap(null); // Temporarily commented for debugging
+          }}
+          tableMap={convertToTableMapType(selectedTableMap)}
+        />
+      )}
+
+      {/* Dialog for Editing Map Properties (Name, Description) */}
+      {editingMap && (
         <TableMapDialog 
           isOpen={isEditModalOpen} 
           onClose={handleCloseEditModal} 
-          initialData={editingMap} 
+          initialData={convertToTableMapType(editingMap)}
         />
       )}
 
@@ -272,13 +309,13 @@ export default function TableMapsList({ onCreateMap }: TableMapsListProps) {
 
 // First, define the interface for ActionButtons props
 interface ActionButtonsProps {
-  map: TableMap;
-  onView: (map: TableMap) => void;
-  onAddTables: (map: TableMap) => void;
-  onEdit: (map: TableMap) => void;
-  onDelete: (map: TableMap) => void;
+  map: TableMapWithId;
+  onView: (map: TableMapWithId) => void;
+  onAddTables: (map: TableMapWithId) => void;
+  onEdit: (map: TableMapWithId) => void;
+  onDelete: (map: TableMapWithId) => void;
   onConfirmDelete: () => void;  
-  tableToDelete: TableMap | null;
+  tableToDelete: TableMapWithId | null;
 }
 
 // Update the ActionButtons component

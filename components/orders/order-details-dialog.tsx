@@ -9,7 +9,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Order, OrderDetailsDialogProps, OrderItem, OrderItemStatus } from '@/types'
+import { OrderType as Order, OrderDetailsDialogProps, OrderItem, OrderItemStatus } from '@/types'
 import { useRouter } from 'next/navigation'
 import { splitOrderItemsByCategory, canViewBothSections, canViewOnlyFood, canViewOnlyDrinks, getOrderStatusFromItems, calculateOrderStatusFromItems } from '@/lib/orderFilters';
 import { useAuth } from '@/components/auth-provider';
@@ -96,6 +96,10 @@ export function OrderDetailsDialog({
 
     if (!liveOrder.id) {
       toast.error("Não é possível atualizar: ID do pedido ausente");
+      return;
+    }
+    if (!db) {
+      toast.error("Database not found");
       return;
     }
     const orderRef = doc(db, "orders", liveOrder.id);

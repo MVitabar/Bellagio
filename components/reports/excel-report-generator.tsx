@@ -12,8 +12,10 @@ import * as XLSX from "xlsx"
 import { jsPDF } from "jspdf"
 import autoTable from 'jspdf-autotable'
 import { 
-  ExcelReportTableProps, ExcelReportGeneratorProps
-} from "@/types"
+  ExcelReportTableProps, 
+  ExcelReportGeneratorProps,
+  ExcelReportData
+} from "@/types/reports"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
 
 export function ExcelReportGenerator({ reportData }: ExcelReportGeneratorProps) {
@@ -94,16 +96,33 @@ export function ExcelReportGenerator({ reportData }: ExcelReportGeneratorProps) 
       doc.setFontSize(14)
       doc.text("Vendas", 14, yPos)
       yPos += 10
-  
+
+      // Convertir los datos de ventas a un formato tabular
+      const salesData = Object.entries(reportData.sales).map(([period, data]) => {
+        const totalSales = data.reduce((sum, sale) => sum + sale.totalRevenue, 0);
+        const totalOrders = data.reduce((sum, sale) => sum + sale.orderCount, 0);
+        return {
+          period,
+          totalSales,
+          totalOrders,
+          averageTicket: totalOrders > 0 ? totalSales / totalOrders : 0
+        };
+      });
+
       autoTable(doc, {
         startY: yPos,
-        head: [Object.keys(reportData.sales)],
-        body: [reportData.sales],
+        head: [['Período', 'Total Vendas', 'Total Pedidos', 'Ticket Médio']],
+        body: salesData.map(row => [
+          row.period,
+          row.totalSales.toFixed(2),
+          row.totalOrders.toString(),
+          row.averageTicket.toFixed(2)
+        ]),
         theme: "grid",
         headStyles: { fillColor: [52, 152, 219], textColor: 255 },
         styles: { fontSize: 10 },
       })
-  
+
       yPos = (doc as any).lastAutoTable.finalY + 15
     }
   
@@ -112,16 +131,29 @@ export function ExcelReportGenerator({ reportData }: ExcelReportGeneratorProps) 
       doc.setFontSize(14)
       doc.text("Pedidos", 14, yPos)
       yPos += 10
-  
+
+      // Convert orders to a format compatible with autoTable
+      const ordersTableData = reportData.orders.map(order => [
+        order.id,
+        order.customerName || 'N/A',
+        order.createdAt 
+          ? ('toDate' in order.createdAt 
+              ? order.createdAt.toDate().toLocaleDateString()
+              : new Date(order.createdAt).toLocaleDateString())
+          : 'N/A',
+        order.status,
+        order.total?.toFixed(2) || '0.00'
+      ]);
+
       autoTable(doc, {
         startY: yPos,
-        head: [Object.keys(reportData.orders[0])],
-        body: reportData.orders,
+        head: [['ID', 'Cliente', 'Data', 'Status', 'Total']],
+        body: ordersTableData,
         theme: "grid",
-        headStyles: { fillColor: [46, 204, 113], textColor: 255 },
+        headStyles: { fillColor: [52, 152, 219], textColor: 255 },
         styles: { fontSize: 10 },
       })
-  
+
       yPos = (doc as any).lastAutoTable.finalY + 15
     }
   
@@ -360,35 +392,50 @@ export function ExcelReportGenerator({ reportData }: ExcelReportGeneratorProps) 
           </div>
 
           <TabsContent value="sales" className="mt-0">
-            <ExcelReportTable title="Vendas e Faturamento" data={reportData.sales} headerColor="#3498db" />
+            <ExcelReportTable 
+              title="Vendas e Faturamento" 
+              data={Object.entries(reportData.sales).map(([period, data]) => ({
+                period,
+                totalRevenue: data.reduce((sum, sale) => sum + sale.totalRevenue, 0).toFixed(2),
+                orderCount: data.reduce((sum, sale) => sum + sale.orderCount, 0),
+                averageTicket: (data.reduce((sum, sale) => sum + sale.totalRevenue, 0) / 
+                              data.reduce((sum, sale) => sum + sale.orderCount, 0)).toFixed(2)
+              }))} 
+              headerColor="#3498db"
+              columns={[
+                { header: 'Período', accessorKey: 'period' },
+                { header: 'Receita Total', accessorKey: 'totalRevenue' },
+                { header: 'Total Pedidos', accessorKey: 'orderCount' },
+                { header: 'Ticket Médio', accessorKey: 'averageTicket' }
+              ]}
+            />
           </TabsContent>
 
           <TabsContent value="orders" className="mt-0">
-            <ExcelReportTable title="Gestão de Pedidos" data={reportData.orders} headerColor="#2ecc71" />
+            <ExcelReportTable title="Gestão de Pedidos" data={reportData.orders} headerColor="#2ecc71" columns={[]} />
           </TabsContent>
 
           <TabsContent value="inventory" className="mt-0">
-            <ExcelReportTable title="Controle de Inventário" data={reportData.inventory} headerColor="#e74c3c" />
+            <ExcelReportTable title="Controle de Inventário" data={reportData.inventory} headerColor="#e74c3c" columns={[]} />
           </TabsContent>
 
           <TabsContent value="financial" className="mt-0">
-            <ExcelReportTable title="Informações Financeiras" data={reportData.financial} headerColor="#f39c12" />
+            <ExcelReportTable title="Informações Financeiras" data={reportData.financial} headerColor="#f39c12" columns={[]} />
           </TabsContent>
 
           <TabsContent value="staff" className="mt-0">
-            <ExcelReportTable title="Desempenho da Equipe" data={reportData.staff} headerColor="#9b59b6" />
+            <ExcelReportTable title="Desempenho da Equipe" data={reportData.staff} headerColor="#9b59b6" columns={[]} />
           </TabsContent>
 
           <TabsContent value="customers" className="mt-0">
-            <ExcelReportTable title="Clientes e Marketing" data={reportData.customers} headerColor="#1abc9c" />
+            <ExcelReportTable title="Clientes e Marketing" data={reportData.customers} headerColor="#1abc9c" columns={[]} />
           </TabsContent>
 
           <TabsContent value="reservations" className="mt-0">
             <ExcelReportTable
               title="Reservas e Ocupação"
               data={reportData.reservations}
-              headerColor="#34495e"
-            />
+              headerColor="#34495e" columns={[]}            />
           </TabsContent>
         </div>
       </Tabs>
@@ -396,7 +443,7 @@ export function ExcelReportGenerator({ reportData }: ExcelReportGeneratorProps) 
   )
 }
 
-function ExcelReportTable({ title, data, headerColor }: ExcelReportTableProps) {
+function ExcelReportTable({ title, data, headerColor, columns }: ExcelReportTableProps) {
   // Handle case when data is undefined
   if (!data) {
     return (
@@ -404,121 +451,6 @@ function ExcelReportTable({ title, data, headerColor }: ExcelReportTableProps) {
         Nenhum dado disponível
       </div>
     )
-  }
-
-  // Dynamic summary generation function
-  const generateSummary = (data: any) => {
-    // Handle SalesData specifically
-    if (data && 'totalRevenue' in data) {
-      return [
-        { label: "Receita Total", value: data.totalRevenue },
-        { label: "Valor Médio do Pedido", value: data.averageOrderValue },
-        { label: "Número de Pedidos", value: data.numberOfOrders }
-      ]
-    }
-
-    // Generic summary generation for other data types
-    return Object.entries(data || {})
-      .filter(([_, value]) => 
-        typeof value === 'number' || 
-        typeof value === 'string'
-      )
-      .slice(0, 4)
-      .map(([key, value]) => {
-        // Simple translation for known keys, otherwise use the key itself
-        let translatedKey = key;
-        if (key === 'totalRevenue') translatedKey = 'Receita Total';
-        else if (key === 'averageOrderValue') translatedKey = 'Valor Médio do Pedido';
-        else if (key === 'numberOfOrders') translatedKey = 'Número de Pedidos';
-        // Add more translations as needed for other generic keys
-        return { label: translatedKey, value: value };
-      })
-  }
-
-  // Dynamic charts generation function
-  const generateCharts = (data: any) => {
-    // Handle SalesData specifically
-    if (data && 'totalRevenue' in data) {
-      return [
-        {
-          title: "Distribuição de Vendas",
-          type: 'pie',
-          data: {
-            totalRevenue: data.totalRevenue,
-            averageOrderValue: data.averageOrderValue,
-            numberOfOrders: data.numberOfOrders
-          }
-        }
-      ]
-    }
-
-    // Handle array of data
-    if (Array.isArray(data)) {
-      return data.map(item => ({
-        title: `${(item as any).category 
-          || (item as any).name 
-          || (item as any).status 
-          || 'Item'} Análise`,
-        type: 'bar',
-        data: { 
-          amount: (item as any).amount, 
-          percentage: (item as any).percentage,
-          performance: (item as any).performance,
-          visits: (item as any).visits,
-          guests: (item as any).guests,
-          status: (item as any).status
-        }
-      }))
-    }
-
-    // Generic chart generation for other data types
-    return Object.entries(data || {})
-      .filter(([_, value]) => typeof value === 'number')
-      .slice(0, 2)
-      .map(([key, value]) => ({
-        title: `${key} Análise`, // Simple translation, or use a lookup map
-        type: 'bar',
-        data: { [key]: value }
-      }))
-  }
-
-  // Transform data to a consistent structure
-  const transformedData = {
-    summary: Array.isArray(data) 
-      ? data.map(item => ({
-          label: (item as any).category 
-            || (item as any).name 
-            || (item as any).role 
-            || (item as any).status 
-            || 'Categoria',
-          value: (item as any).amount 
-            || (item as any).performance 
-            || (item as any).visits 
-            || (item as any).totalSpent 
-            || (item as any).guests 
-            || 0
-        }))
-      : generateSummary(data) || [],
-    data: Array.isArray(data) 
-      ? data 
-      : (data.data || [data].filter(Boolean)),
-    charts: Array.isArray(data) 
-      ? data.map(item => ({
-          title: `${(item as any).category 
-            || (item as any).name 
-            || (item as any).status 
-            || 'Item'} Análise`,
-          type: 'bar',
-          data: { 
-            amount: (item as any).amount, 
-            percentage: (item as any).percentage,
-            performance: (item as any).performance,
-            visits: (item as any).visits,
-            guests: (item as any).guests,
-            status: (item as any).status
-          }
-        }))
-      : generateCharts(data) || []
   }
 
   return (
@@ -530,124 +462,28 @@ function ExcelReportTable({ title, data, headerColor }: ExcelReportTableProps) {
         <h3 className="text-lg font-semibold text-white">{title}</h3>
       </div>
 
-      {transformedData.summary.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
-          {transformedData.summary.map((item, index) => (
-            <div 
-              key={index} 
-              className="bg-muted p-3 rounded-lg text-center"
-            >
-              <p className="text-sm text-muted-foreground">{item.label}</p>
-              <p className="text-lg font-bold">{item.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {transformedData.data.length > 0 && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {Object.keys(transformedData.data[0] || {}).map((key) => (
-                  <TableHead key={key}>{translateKeyToPortuguese(key)}</TableHead>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((column) => (
+                <TableHead key={column.accessorKey}>{column.header}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map((row: Record<string, any>, rowIndex: number) => (
+              <TableRow key={rowIndex}>
+                {columns.map((column, cellIndex) => (
+                  <TableCell key={cellIndex}>
+                    {row[column.accessorKey]}
+                  </TableCell>
                 ))}
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transformedData.data.map((row: Record<string, any>, rowIndex: number) => (
-                <TableRow key={rowIndex}>
-                  {Object.values(row).map((value: any, cellIndex: number) => (
-                    <TableCell key={cellIndex}>
-                      {value instanceof Date 
-                        ? format(value, "dd/MM/yyyy") 
-                        : String(value)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {transformedData.charts && transformedData.charts.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-          {transformedData.charts.map((chart, index) => (
-            <div key={index} className="bg-muted p-4 rounded-lg">
-              <h4 className="text-md font-semibold mb-2">{chart.title}</h4>
-              {/* Placeholder for chart rendering logic */}
-              <p>{"Tipo de gráfico"}: {chart.type}</p>
-               <p>{"Dados"}: {JSON.stringify(chart.data)}</p>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
-}
-
-// Helper function to translate known keys, can be expanded
-function translateKeyToPortuguese(key: string): string {
-  const translations: { [key: string]: string } = {
-    name: "Nome",
-    category: "Categoria",
-    price: "Preço",
-    quantity: "Quantidade",
-    total: "Total",
-    status: "Status",
-    date: "Data",
-    time: "Hora",
-    id: "ID",
-    client: "Cliente",
-    table: "Mesa",
-    waiter: "Garçom",
-    paymentMethod: "Método de Pagamento",
-    items: "Itens",
-    revenue: "Receita",
-    cost: "Custo",
-    profit: "Lucro",
-    stock: "Estoque",
-    supplier: "Fornecedor",
-    user: "Usuário",
-    role: "Função",
-    email: "Email",
-    phone: "Telefone",
-    address: "Endereço",
-    // Sales specific
-    totalRevenue: "Receita Total",
-    averageOrderValue: "Valor Médio Pedido",
-    numberOfOrders: "Nº de Pedidos",
-    // Orders specific
-    orderId: "ID Pedido",
-    customerName: "Nome Cliente",
-    orderDate: "Data Pedido",
-    orderStatus: "Status Pedido",
-    orderTotal: "Total Pedido",
-    // Inventory specific
-    itemName: "Nome Item",
-    itemCategory: "Categoria Item",
-    unitsInStock: "Unidades Estoque",
-    unitPrice: "Preço Unid.",
-    // Financial specific
-    transactionId: "ID Transação",
-    transactionType: "Tipo Transação",
-    amount: "Valor",
-    transactionDate: "Data Transação",
-    // Staff specific
-    staffName: "Nome Funcionário",
-    staffRole: "Função Funcionário",
-    hoursWorked: "Horas Trabalhadas",
-    // Customer specific
-    totalSpent: "Total Gasto",
-    lastVisit: "Última Visita",
-    // Reservations specific
-    reservationId: "ID Reserva",
-    guestName: "Nome Hóspede",
-    reservationDate: "Data Reserva",
-    reservationTime: "Hora Reserva",
-    partySize: "Tam. Grupo",
-    // Add more general and specific keys as needed
-  };
-  return translations[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1'); // Fallback: Capitalize and space camelCase
 }

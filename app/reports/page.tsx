@@ -28,6 +28,7 @@ import {
 } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Order } from "@/types/order"
+import { toast } from "sonner"
 
 interface WaiterStats {
   waiter: string;
@@ -136,7 +137,12 @@ export default function ReportsPage() {
   const fetchReportData = async (startDate: Date, endDate: Date) => {
     setLoading(true);
     try {
-      console.log('Fetching orders between:', startDate, 'and', endDate);
+      if (!db) {
+        toast.error("Database not found");
+        return;
+      }
+
+      
 
       const ordersRef = collection(db, 'orders');
       const q = query(
@@ -188,7 +194,7 @@ export default function ReportsPage() {
         };
         
         // Solo procesar órdenes pagadas
-        if (order.status !== 'Pago' && order.status !== 'completed') {
+        if (order.status !== 'Pago' && order.status !== 'Entregue') {
           return;
         }
 

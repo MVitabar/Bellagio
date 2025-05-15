@@ -4,12 +4,10 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useFirebase } from "@/components/firebase-provider"
 import { DollarSign, Utensils, Clock } from "lucide-react"
-import { collection, query, where, getDocs, orderBy, doc, onSnapshot, limit, getDoc } from "firebase/firestore"
+import { collection, query, where, getDocs, orderBy, doc, onSnapshot, limit, getDoc, Timestamp } from "firebase/firestore"
 import { Order, OrderItem } from "@/types/order" 
 import { MetricCard } from "./components/metric-card"
-import { SalesChart } from "./components/sales-chart"
 import { RecentActivity } from "./components/recent-activity"
-import { ExcelReportGenerator } from "@/components/reports/excel-report-generator"
 import { CategoryChart } from "./components/category-chart"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { SalesSummary } from "./components/sales-summary"
@@ -17,6 +15,7 @@ import { PaymentMethodsSummary } from "./components/payment-methods-summary"
 import { Button } from "@/components/ui/button"
 import { Download, FileText } from "lucide-react"
 import Link from "next/link"
+import { ReportViewDialog } from "./components/report-view-dialog"
 
 interface DashboardMetrics {
   totalVentas: number;
@@ -57,10 +56,24 @@ interface Table {
   y: number;
 }
 
+// Función auxiliar para convertir Timestamp a Date
+const convertToDate = (timestamp: Date | Timestamp): Date => {
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate()
+  }
+  return timestamp
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const { db } = useFirebase()
   const [loading, setLoading] = useState(true)
+  // State for dialogs
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState("");
+  const [dialogData, setDialogData] = useState<Record<string, any>>({});
+  const [dialogDescription, setDialogDescription] = useState<string | undefined>(undefined);
+
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalVentas: 0,
     pedidosHoje: 0,
@@ -93,8 +106,6 @@ export default function DashboardPage() {
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         
-        console.log('Fetching orders since:', thirtyDaysAgo)
-
         const ordersRef = collection(db, 'orders')
         const ordersQuery = query(
           ordersRef,
@@ -103,28 +114,25 @@ export default function DashboardPage() {
         )
 
         const ordersSnapshot = await getDocs(ordersQuery)
-        console.log(`Found ${ordersSnapshot.docs.length} orders`)
 
         const orders = ordersSnapshot.docs.map(doc => {
           const data = doc.data()
-          console.log('Order data:', { id: doc.id, createdAt: data.createdAt, status: data.status, items: data.items })
           return {
             id: doc.id,
             ...data,
-            createdAt: data.createdAt?.toDate?.() || new Date(0)
+            createdAt: data.createdAt?.toDate?.() || new Date(0),
+            paymentMethod: data.paymentMethod || 'Não especificado' // Assuming paymentMethod field and providing a default
           }
         }) as Order[]
 
         // Filter orders for today
         const ordersToday = orders.filter(order => {
           if (!order.createdAt) return false
-          const orderDate = order.createdAt
+          const orderDate = convertToDate(order.createdAt)
           return orderDate.getFullYear() === today.getFullYear() &&
                  orderDate.getMonth() === today.getMonth() &&
                  orderDate.getDate() === today.getDate()
         })
-
-        console.log(`Found ${ordersToday.length} orders for today`)
 
         // Calcular items más vendidos
         const itemsMap = new Map()
@@ -157,7 +165,7 @@ export default function DashboardPage() {
 
         // Calcular histórico de ventas por día
         const salesByDate = orders.reduce((acc, order) => {
-          const date = new Date(order.createdAt).toISOString().split('T')[0]
+          const date = convertToDate(order.createdAt).toISOString().split('T')[0]
           acc[date] = (acc[date] || 0) + (order.total || 0)
           return acc
         }, {} as Record<string, number>)
@@ -198,88 +206,77 @@ export default function DashboardPage() {
           }))
           .sort((a, b) => b.value - a.value)
 
-        // Calcular métricas del día
-        const totalVendasHoje = ordersToday.reduce((sum, order) => sum + (order.total || 0), 0)
-        const pedidosPendentes = ordersToday.filter(order => 
-          order.status === "Pendente" || order.status === "Pronto para servir"
-        ).length
-
-        // Configurar listener para mesas
-        const tableMapsRef = collection(db, 'tableMaps')
-        const tableMapsQuery = query(tableMapsRef, where('active', '==', true), limit(1))
-        
-        const unsubscribe = onSnapshot(tableMapsQuery, async (mapsSnapshot) => {
-          let activeMapId = 'default_map'
-          
-          if (!mapsSnapshot.empty) {
-            activeMapId = mapsSnapshot.docs[0].id
-          }
-          
-          const activeMapRef = doc(db, 'tableMaps', activeMapId)
-          const mapSnapshot = await getDoc(activeMapRef)
-          const mapData = mapSnapshot.data()
-          
-          if (!mapData) {
-            console.log('No se encontró el mapa:', activeMapId)
-            return
-          }
-
-          console.log('Datos completos del mapa:', JSON.stringify(mapData, null, 2))
-          // Las mesas están en mapData.layout.tables, no en mapData.tables
-          const tables = mapData.layout?.tables || []
-          console.log('Mesas encontradas:', tables.length, tables)
-
-          const occupiedTables = tables.filter((table: Table) => {
-            console.log('Revisando mesa:', {
-              name: table.name,
-              status: table.status,
-              activeOrderId: table.activeOrderId
-            })
-            const isOccupied = table.status === 'occupied' || 
-                             (table.status === 'pending' && table.activeOrderId)
-            if (isOccupied) {
-              console.log('Mesa ocupada:', table.name)
-            }
-            return isOccupied
-          })
-
-          const activeCustomers = tables.reduce((total: number, table: Table) => {
-            if (table.status === 'occupied') {
-              console.log('Mesa con clientes:', table.name, 'capacidad:', table.capacity)
-              return total + (table.capacity || 2)
-            }
-            return total
-          }, 0)
-
-          console.log('Resumen de mesas:', {
-            total: tables.length,
-            occupied: occupiedTables.length,
-            customers: activeCustomers,
-            occupiedTables: occupiedTables.map((t: Table) => t.name)
-          })
-          
-          setMetrics(prev => {
-            const newMetrics = {
-              ...prev,
-              mesasOcupadas: occupiedTables.length,
-              clientesAtivos: activeCustomers
-            }
-            console.log('Actualizando métricas de mesas:', newMetrics)
-            return newMetrics
-          })
+        // Calcular topPaymentMethods
+        const paymentMethodMap = new Map<string, number>()
+        orders.forEach(order => {
+          // Ensure order.paymentMethod is a string and not undefined/null
+          const method = typeof order.paymentMethod === 'string' && order.paymentMethod ? order.paymentMethod : 'Não especificado';
+          paymentMethodMap.set(method, (paymentMethodMap.get(method) || 0) + 1)
         })
 
+        const totalPayments = orders.length
+        const topPaymentMethods = Array.from(paymentMethodMap.entries())
+          .map(([method, count]) => ({
+            method,
+            count,
+            percentage: totalPayments > 0 ? (count / totalPayments) * 100 : 0
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5) // Show top 5 payment methods
+
+        // Generar recentActivities (ejemplo con los últimos 5 pedidos)
+        const recentActivities = orders.slice(0, 5).map(order => {
+          return {
+            id: order.id,
+            type: 'order' as 'order' | 'table' | 'payment',
+            description: `Pedido ${order.tableNumber ? 'Nº ' + order.tableNumber : '#' + order.orderType === 'Balcão' ? 'Balcão' : 'Mesa ' + order.tableNumber } ${order.status || ''}`.trim(),
+            time: convertToDate(order.createdAt),
+            status: order.status,
+            amount: order.total,
+            // tableNumber: order.tableNumber, // Uncomment if you have tableNumber in Order
+            paymentMethod: typeof order.paymentMethod === 'string' ? order.paymentMethod : 'Não especificado'
+          }
+        })
+
+        // Calcular Horários de Pico (Peak Hours) para hoje
+        const salesByHour = new Array(24).fill(0).map((_, i) => ({ hour: i, sales: 0 }));
+        ordersToday.forEach(order => {
+          if (order.createdAt && order.total) {
+            const hour = convertToDate(order.createdAt).getHours();
+            salesByHour[hour].sales += order.total;
+          }
+        });
+        // Filtrar horas com vendas e ordenar pelas que tiveram mais vendas, pegar top 3-5, ou como preferir
+        const peakHours = salesByHour
+          .filter(h => h.sales > 0)
+          .sort((a, b) => b.sales - a.sales);
+
+        // Calcular métricas del día
+        const totalVendasHoje = ordersToday.reduce((sum, order) => sum + (order.total || 0), 0);
+        const pedidosPendentes = ordersToday.filter(order => 
+          order.status === "Pendente" || order.status === "Pronto para servir"
+        ).length;
+
+        const localCalculatedAvgTicket = ordersToday.length > 0 ? totalVendasHoje / ordersToday.length : 0;
+
         // Actualizar todas las métricas
-        setMetrics(prev => ({
-          ...prev,
-          totalVentas: totalVendasHoje,
-          pedidosHoje: ordersToday.length,
-          pedidosPendentes,
-          topItems,
-          salesHistory: salesHistory,
-          categoryData,
-          vendasSemanais: salesHistory.slice(-7)
-        }))
+        setMetrics(prev => {
+          const updatedMetrics = {
+            ...prev,
+            totalVentas: totalVendasHoje,
+            pedidosHoje: ordersToday.length,
+            pedidosPendentes,
+            topItems,
+            salesHistory: salesHistory,
+            categoryData,
+            vendasSemanais: salesHistory.slice(-7),
+            topPaymentMethods,
+            recentActivities,
+            averageTicket: localCalculatedAvgTicket, 
+            peakHours
+          };
+          return updatedMetrics;
+        });
 
         return () => unsubscribe()
 
@@ -394,69 +391,92 @@ export default function DashboardPage() {
                 variant="secondary" 
                 className="w-full" 
                 onClick={() => {
-                  const today = new Date().toLocaleDateString();
-                  const data = {
-                    date: today,
-                    total: metrics.totalVentas,
-                    orders: metrics.pedidosHoje,
-                    average: metrics.averageTicket
+                  const reportData = {
+                    data: new Date().toLocaleDateString('pt-BR'),
+                    totalVendas: metrics.totalVentas,
+                    pedidosRealizados: metrics.pedidosHoje,
+                    ticketMedio: metrics.averageTicket
                   };
-                  // Aqui podríamos usar una función auxiliar para exportar
-                  console.log("Exportar reporte diario:", data);
+                  setDialogTitle("Relatório de Vendas do Dia");
+                  setDialogData(reportData);
+                  setDialogDescription(`Dados detalhados para ${new Date().toLocaleDateString('pt-BR')}.`);
+                  setDialogOpen(true);
                 }}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar Resumo Diário
+                <FileText className="w-4 h-4 mr-2" />
+                Ver Detalhes
               </Button>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Resumo Semanal</CardTitle>
+              <CardTitle className="text-sm font-medium">Vendas da Semana</CardTitle>
             </CardHeader>
             <CardContent>
               <Button 
                 variant="secondary" 
-                className="w-full"
+                className="w-full" 
                 onClick={() => {
-                  const data = {
-                    weekSales: metrics.vendasSemanais,
-                    topItems: metrics.topItems.slice(0, 5)
+                  const weeklySalesTotal = metrics.vendasSemanais.reduce((sum, day) => sum + day.total, 0);
+                  const reportData = {
+                    periodo: "Últimos 7 dias",
+                    totalVendas: weeklySalesTotal,
+                    mediaDiaria: metrics.vendasSemanais.length > 0 ? weeklySalesTotal / metrics.vendasSemanais.length : 0,
+                    // Poderíamos adicionar mais detalhes se necessário, como vendas por dia da semana
+                    diasComVendas: metrics.vendasSemanais.length
                   };
-                  console.log("Exportar reporte semanal:", data);
+                  setDialogTitle("Relatório de Vendas da Semana");
+                  setDialogData(reportData);
+                  setDialogDescription("Resumo das vendas dos últimos 7 dias.");
+                  setDialogOpen(true);
                 }}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar Resumo Semanal
+                <FileText className="w-4 h-4 mr-2" />
+                Ver Detalhes
               </Button>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Análise de Vendas</CardTitle>
+              <CardTitle className="text-sm font-medium">Vendas do Mês</CardTitle>
             </CardHeader>
             <CardContent>
               <Button 
                 variant="secondary" 
-                className="w-full"
+                className="w-full" 
                 onClick={() => {
-                  const data = {
-                    categoryData: metrics.categoryData,
-                    peakHours: metrics.peakHours,
-                    paymentMethods: metrics.topPaymentMethods
+                  const monthlySalesTotal = metrics.salesHistory.reduce((sum, day) => sum + day.total, 0);
+                  // Assuming salesHistory is for the last 30 days
+                  const reportData = {
+                    periodo: "Últimos 30 dias",
+                    totalVendas: monthlySalesTotal,
+                    mediaDiaria: metrics.salesHistory.length > 0 ? monthlySalesTotal / metrics.salesHistory.length : 0,
+                    diasComVendas: metrics.salesHistory.length
                   };
-                  console.log("Exportar análise:", data);
+                  setDialogTitle("Relatório de Vendas do Mês");
+                  setDialogData(reportData);
+                  setDialogDescription("Resumo das vendas dos últimos 30 dias.");
+                  setDialogOpen(true);
                 }}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar Análise
+                <FileText className="w-4 h-4 mr-2" />
+                Ver Detalhes
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+      {/* Render the Dialog */}
+      <ReportViewDialog 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen} 
+        title={dialogTitle} 
+        data={dialogData} 
+        description={dialogDescription}
+      />
     </div>
   )
+}
+function unsubscribe() {
+  throw new Error("Function not implemented.")
 }
