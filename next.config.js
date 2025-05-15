@@ -13,10 +13,7 @@ const nextConfig = {
         ]
       }
     ]
-  }
-}
-
-module.exports = {
+  },
   webpack: (config, { isServer }) => {
     // Add optimization settings
     config.optimization = {
@@ -26,4 +23,5 @@ module.exports = {
     return config
   }
 }
+
 module.exports = nextConfig
