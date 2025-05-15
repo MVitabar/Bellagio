@@ -488,28 +488,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: serverTimestamp()
         });
 
-        // 3. Remove initial inventory category creation based on the old enum
-        /*
-        Object.values(MenuItemCategory).forEach(categoryValue => {
-          const categoryKey = (Object.keys(MenuItemCategory) as Array<keyof typeof MenuItemCategory>).find(key => MenuItemCategory[key] === categoryValue);
-          
-          if (categoryKey) {
-            // Create category doc directly in the 'inventory' collection
-            const categoryDocRef = doc(db, 'inventory', categoryValue.toLowerCase()); 
-            batch.set(categoryDocRef, {
-              // Indicate this document represents a category
-              _isCategory: true, // Add a flag to identify these as category docs
-              id: categoryValue.toLowerCase(),
-              name: categoryKey, 
-              createdAt: serverTimestamp()
-              // Add other default fields for a category if needed
-            });
-          }
-        });
-        */
+        // 3. Initialize inventory categories with the required categories
+        const inventoryCategories = [
+          { id: 'refrigerantes', name: 'Refrigerantes', _isCategory: true },
+          { id: 'drinks', name: 'Drinks', _isCategory: true },
+          { id: 'cervejas', name: 'Cervejas', _isCategory: true },
+          { id: 'vinhos', name: 'Vinhos', _isCategory: true },
+          { id: 'acompanhamentos', name: 'Acompanhamentos', _isCategory: true },
+          { id: 'almoco', name: 'Almoco', _isCategory: true },
+          { id: 'jantar', name: 'Jantar', _isCategory: true }
+        ];
 
-        // 4. Create placeholder documents for other collections (inventory placeholder removed)
-        // batch.set(doc(db, 'inventory', '_placeholder'), { initializedAt: serverTimestamp() }); // Removed
+        // Create each category in the batch
+        inventoryCategories.forEach(category => {
+          batch.set(doc(db, 'inventory', category.id), {
+            name: category.name,
+            _isCategory: true,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        //4. Create placeholder documents for other collections
         batch.set(doc(db, 'orders', '_placeholder'), { initializedAt: serverTimestamp() });
         batch.set(doc(db, 'invitations', '_placeholder'), { initializedAt: serverTimestamp() });
 
